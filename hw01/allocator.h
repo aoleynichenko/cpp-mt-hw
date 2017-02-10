@@ -14,7 +14,7 @@ class Pointer;
  */
 class Allocator {
 public:
-    Allocator(void* base, size_t size) {}
+    Allocator(void* base, size_t size);
 
     /**
      * TODO: semantics
@@ -27,23 +27,43 @@ public:
      * @param p Pointer
      * @param N size_t
      */
-    void realloc(Pointer& p, size_t N) {}
+    void realloc(Pointer& p, size_t N);
 
     /**
      * TODO: semantics
      * @param p Pointer
      */
-    void free(Pointer& p) {}
+    void free(Pointer& p);
 
     /**
      * TODO: semantics
      */
-    void defrag() {}
+    void defrag();
 
     /**
      * TODO: semantics
      */
-    std::string dump() const { return ""; }
+    std::string dump() const;
+private:
+    void* base_;
+    size_t sz_;
+    
+    /** I use idea from K&R 8.7 to represent free blocks of bytes which
+     *  can be allocated.
+     */
+    struct Header {
+        Header* nxt;   // next free block of memory
+        void**  ptr;   // first smart pointer in the chain, == nullptr if block is free
+        size_t  size;  // block size
+    };
+    
+    Header  head_;
+    Header* freep_;    // list of free blocks
+    Header* top_;      // last added block (may be occupied)
+    
+    // add new block of (nunits+1)*sizeof(Header) bytes to the end
+    // (last address!) of the single-linked list
+    void add_block(size_t nunits);  
 };
 
 #endif // ALLOCATOR

@@ -7,7 +7,20 @@ class Allocator;
 
 class Pointer {
 public:
-    void* get() const { return 0; }
+    Pointer(void* p = nullptr);
+    Pointer(Pointer&& p);
+    ~Pointer();
+    
+    Pointer& operator=(Pointer&& p);
+    
+    void* get() const;
+    
+    friend class Allocator;
+protected:
+    Pointer(const Pointer& p);
+    Pointer& operator=(const Pointer& p);
+private:
+    void* self_;
 };
 
 #endif //ALLOCATOR_POINTER
