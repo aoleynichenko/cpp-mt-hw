@@ -27,16 +27,21 @@ Pointer Allocator::alloc(size_t N) {
     size_t nunits = (N + sizeof(Allocator::Header) - 1) / sizeof(Allocator::Header) + 1;
     for (p = prevp->nxt; ; prevp = p, p = p->nxt) {
         if (p->size >= nunits) {     // block is large enough
+            printf("block found! p = %p, p->size = %d, nunits = %d\n", p, p->size, nunits);
             if (p->size == nunits)   // exactly required size of block
                 prevp->nxt = p->nxt;
             else {   // cut and then return tail bytes
-                p->size -= nunits;
-                p += p->size;
+                p->size -= nunits + 1;
+                p += p->size + 1;
                 p->size = nunits;
             }
             freep_ = prevp;
+            printf("freep = %p\n", freep_);
             Pointer smart((void *) (p+1));
             p->ptr = &smart.self_;
+            
+            dump();
+            
             //printf("&smart.self_ = %p\n", p->ptr);
             return smart;
         }
@@ -51,8 +56,12 @@ Pointer Allocator::alloc(size_t N) {
 
 void Allocator::realloc(Pointer& p, size_t N)
 {
-    this->free(p);
+    dump();
+    if (p.get())
+        this->free(p);
+    dump();
     p = this->alloc(N);
+    dump();
 }
 
 void Allocator::free(Pointer& ptr)
@@ -88,7 +97,7 @@ void Allocator::free(Pointer& ptr)
     bp->ptr = nullptr;   // mark block as unused
     //printf("free bp->ptr = %p\n", bp->ptr);
     //ptr.self_ = nullptr;
-    freep_ = p;
+    freep_ = bp;  // points to freed block
 }
 
 void Allocator::defrag()
@@ -121,7 +130,7 @@ std::string Allocator::dump() const
     printf("---------------------------------------------------------------\n");
     printf("  addr              next             ptr            size\n");
     for (p = start; p != top_; p += p->size + 1) {
-        printf("%-12p [ %-16p | %-16p | %-2d ]\n", p+1, p->nxt, p->ptr ? *p->ptr : nullptr , p->size);
+        printf("%-12p [ %-16p | %-16p | %-2d ]\n", p, p->nxt, p->ptr/* ? *p->ptr : nullptr*/ , p->size);
     }
     printf("%p\n", p);
     printf("===============================================================\n\n");
