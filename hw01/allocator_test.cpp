@@ -134,6 +134,7 @@ TEST(Allocator, DefragMove) {
     a.free(ptrs[1]);
     a.free(ptrs[10]);
     a.free(ptrs[15]);
+    
 
     ptrs.erase(ptrs.begin() + 15);  // remove these three smart pointers
     ptrs.erase(ptrs.begin() + 10);
@@ -160,7 +161,7 @@ TEST(Allocator, DefragMove) {
         a.free(p);
     }
 }
-/*
+
 TEST(Allocator, DefragMoveTwice) {
     Allocator a(buf, sizeof(buf));
 
@@ -248,7 +249,7 @@ TEST(Allocator, ReallocFromEmpty) {
     a.free(p1);
     a.free(p2);
 }
-
+/*
 TEST(Allocator, ReallocGrowInplace) {
     Allocator a(buf, sizeof(buf));
 

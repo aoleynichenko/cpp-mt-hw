@@ -35,6 +35,9 @@ Pointer& Pointer::operator=(Pointer&& p)
 	if (this != &p) {
 		self_ = p.self_;
 		p.self_ = nullptr;
+		// update header in allocator
+		header* h = (header*) self_ - 1;
+		h->ptr = &self_;
 	}
 	return *this;
 }

@@ -2,6 +2,7 @@
 #include "allocator_error.h"
 #include "allocator_pointer.h"
 
+#include <sstream>
 #include <stdio.h>
 #include <string.h>
 //#define DEBUG
@@ -50,6 +51,8 @@ Pointer Allocator::alloc(size_t N) {
 
 void Allocator::realloc(Pointer& p, size_t N)
 {
+    this->free(p);
+    p = this->alloc(N);
 }
 
 void Allocator::free(Pointer& ptr)
@@ -108,6 +111,20 @@ void Allocator::defrag()
 
 std::string Allocator::dump() const
 {
+    Allocator::Header* start = (Allocator::Header*) base_, *p;
+    
+    printf("\n============================= DUMP ============================\n");
+    printf("&head    %p\n", &head_);
+    printf("head.nxt %p\n", head_.nxt);
+    printf("top      %p\n", top_);
+    printf("freep    %p\n", freep_);
+    printf("---------------------------------------------------------------\n");
+    printf("  addr              next             ptr            size\n");
+    for (p = start; p != top_; p += p->size + 1) {
+        printf("%-12p [ %-16p | %-16p | %-2d ]\n", p+1, p->nxt, p->ptr ? *p->ptr : nullptr , p->size);
+    }
+    printf("%p\n", p);
+    printf("===============================================================\n\n");
     return "";
 }
 
