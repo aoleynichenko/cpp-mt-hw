@@ -1,26 +1,30 @@
 #ifndef ALLOCATOR_POINTER
 #define ALLOCATOR_POINTER
 
+#include <stddef.h>
+
 // Forward declaration. Do not include real class definition
 // to avoid expensive macros calculations and increase compile speed
-class Allocator;
+#include "allocator.h"
 
 class Pointer {
 public:
-    Pointer(void* p = nullptr);
-    Pointer(Pointer&& p);
+    Pointer();
+    Pointer(const Pointer& p);
     ~Pointer();
     
-    Pointer& operator=(Pointer&& p);
+    Pointer& operator=(const Pointer& p);
     
     void* get() const;
     
     friend class Allocator;
 protected:
-    Pointer(const Pointer& p);
-    Pointer& operator=(const Pointer& p);
+	Pointer(size_t idx, Allocator* alc);
 private:
-    void* self_;
+    size_t     idx_;
+    Allocator* allocator_;
+    
+    void reset();
 };
 
 #endif //ALLOCATOR_POINTER

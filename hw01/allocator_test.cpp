@@ -9,20 +9,20 @@
 
 using namespace std;
 char buf[65536];
-/*
+
 TEST(Allocator, AllocInRange) {
     Allocator a(buf, sizeof(buf));
 
     int size = 500;
 
-    Pointer p = a.alloc(size);
+    Pointer p = a.alloc(size);   
     char* v = reinterpret_cast<char*>(p.get());
 
     EXPECT_GE(v, buf);
     EXPECT_LE(v + size, buf + sizeof(buf));
 
     a.free(p);
-}*/
+}
 
 static void writeTo(Pointer& p, size_t size) {
     char* v = reinterpret_cast<char*>(p.get());
@@ -61,7 +61,7 @@ static bool fillUp(Allocator& a, size_t allocSize, vector<Pointer>& out) {
 
     return false;
 }
-/*
+
 TEST(Allocator, AllocReadWrite) {
     Allocator a(buf, sizeof(buf));
 
@@ -102,6 +102,7 @@ TEST(Allocator, AllocNoMem) {
     }
 }
 
+
 TEST(Allocator, AllocReuse) {
     Allocator a(buf, sizeof(buf));
 
@@ -135,10 +136,10 @@ TEST(Allocator, DefragMove) {
     a.free(ptrs[10]);
     a.free(ptrs[15]);
     
-
     ptrs.erase(ptrs.begin() + 15);  // remove these three smart pointers
     ptrs.erase(ptrs.begin() + 10);
     ptrs.erase(ptrs.begin() + 1);
+    
 
     for (Pointer& p : ptrs) {
         auto r = initialPtrs.insert(p.get());
@@ -248,8 +249,8 @@ TEST(Allocator, ReallocFromEmpty) {
     a.free(p);
     a.free(p1);
     a.free(p2);
-}*/
-/*
+}
+
 TEST(Allocator, ReallocGrowInplace) {
     Allocator a(buf, sizeof(buf));
 
@@ -272,7 +273,7 @@ TEST(Allocator, ReallocGrowInplace) {
 
     a.free(p);
     a.free(p2);
-}*/
+}
 
 
 TEST(Allocator, ReallocShrink) {
@@ -301,7 +302,7 @@ TEST(Allocator, ReallocShrink) {
     a.free(p2);
 }
 
-/*
+
 TEST(Allocator, ReallocGrow) {
     Allocator a(buf, sizeof(buf));
 
@@ -327,4 +328,5 @@ TEST(Allocator, ReallocGrow) {
 
     a.free(p);
     a.free(p2);
-}*/
+}
+

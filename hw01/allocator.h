@@ -44,6 +44,8 @@ public:
      * TODO: semantics
      */
     std::string dump() const;
+    
+    friend class Pointer;
 private:
     void* base_;
     size_t sz_;
@@ -52,9 +54,9 @@ private:
      *  can be allocated.
      */
     struct Header {
-        Header* nxt;   // next free block of memory
-        void**  ptr;   // first smart pointer in the chain, == nullptr if block is free
-        size_t  size;  // block size
+        Header*  nxt;   // next free block of memory
+        Header** idx;   // for indirect addressing
+        size_t   size;  // block size (including size of header subblock)
     };
     
     Header  head_;
@@ -63,7 +65,14 @@ private:
     
     // add new block of (nunits+1)*sizeof(Header) bytes to the end
     // (last address!) of the single-linked list
-    void add_block(size_t nunits);  
+    void add_block(size_t nunits);
+    size_t add_block_info(Header** h);
+    void* get(size_t idx);
+    
+    // block with indirect addresses
+    // last element has address ind_top_
+    Header** ind_top_;
+    Header** ind_curr_;
 };
 
 #endif // ALLOCATOR

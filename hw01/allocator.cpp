@@ -11,8 +11,11 @@ Allocator::Allocator(void* base, size_t size)
     :   base_(base), sz_(size), top_(nullptr)
 {
     head_.nxt = freep_ = &head_;
-    head_.ptr = nullptr; // no smart pointers
+    head_.idx = nullptr;
     head_.size = 0;
+    // pointers for auxiliary data
+    ind_top_ = (Allocator::Header**) (base + size);
+    ind_curr_ = ind_top_;
 }
 
 /* We treat the block of data as an array of Header objects.
@@ -27,20 +30,28 @@ Pointer Allocator::alloc(size_t N) {
     size_t nunits = (N + sizeof(Allocator::Header) - 1) / sizeof(Allocator::Header) + 1;
     for (p = prevp->nxt; ; prevp = p, p = p->nxt) {
         if (p->size >= nunits) {     // block is large enough
-            printf("block found! p = %p, p->size = %d, nunits = %d\n", p, p->size, nunits);
+            //printf("block found! p = %p, p->size = %d, nunits = %d\n", p, p->size, nunits);
             if (p->size == nunits)   // exactly required size of block
                 prevp->nxt = p->nxt;
-            else {   // cut and then return tail bytes
-                p->size -= nunits + 1;
-                p += p->size + 1;
+            else {   // cut and then return first bytes
+                /*p->size -= nunits;
+                p += p->size;
+                p->size = nunits;*/
+                Header* newp = p + p->size;
+                newp->nxt = p->nxt;
+                prevp->nxt = newp;
+                newp->size = nunits - p->size;
+                newp->idx = nullptr;
                 p->size = nunits;
             }
             freep_ = prevp;
-            printf("freep = %p\n", freep_);
-            Pointer smart((void *) (p+1));
-            p->ptr = &smart.self_;
+            //printf("freep = %p\n", freep_);
+            // add information about this block to the array for indirect addressing
+            // now p points to the header of the current (now occupied) block
+            size_t idx = add_block_info(&p);
+            Pointer smart(idx, this);
             
-            dump();
+            //dump();
             
             //printf("&smart.self_ = %p\n", p->ptr);
             return smart;
@@ -56,12 +67,74 @@ Pointer Allocator::alloc(size_t N) {
 
 void Allocator::realloc(Pointer& p, size_t N)
 {
-    dump();
+    /*dump();
     if (p.get())
         this->free(p);
     dump();
     p = this->alloc(N);
-    dump();
+    dump();*/
+    // get block header
+    Allocator::Header *bp = (Allocator::Header *) p.get() - 1;
+    size_t nunits = (N + sizeof(Allocator::Header) - 1) / sizeof(Allocator::Header) + 1;
+    
+    if (p.get() == nullptr) {
+        p = this->alloc(N);
+        return;
+    }
+    else if (nunits <= bp->size) { // shrink
+        this->free(p);
+        p = this->alloc(N);
+        return;
+    }
+    
+    // now we move to the first occupied block
+    // if not enough memory, we will do simple alloc()
+    // else me will merge all free block to one   
+    this->free(p); 
+    size_t count = 0;
+    //printf("has: %d\n", bp->size);
+    //printf("required: %d\n", nunits);
+    //dump();
+    
+    Allocator::Header* lastfree = bp, *ptr;
+    for (ptr = bp; ptr != top_ && count < nunits/* && ptr->idx != nullptr*/; lastfree = ptr, ptr += ptr->size) {
+        if (ptr->idx)
+            break;
+        count += ptr->size;
+        //printf("count = %d\n", count);
+    }
+    if (ptr == top_) {
+        //printf("top!\n");
+        size_t required = nunits - count;
+        add_block(required);
+        bp->nxt = &head_;
+        bp->size = nunits;
+        bp->idx = nullptr;
+        freep_ = bp;
+        //dump();
+        p = alloc(N);
+    }
+    else if (ptr != top_ && count < nunits) {
+        // we move data here!!!
+        p = alloc(N);
+        memmove(p.get(), bp+1, (nunits-1)*sizeof(Allocator::Header));
+    }
+    else { // merge internal blocks
+        bp->nxt = lastfree->nxt;
+        bp->idx = nullptr;
+        bp->size = count;
+        freep_ = bp;
+        p = alloc(N);
+    }
+    
+
+    
+    /*else if (bp + bp->size == top_) { // grow memory for the last element
+        size_t required = nunits - bp->size;
+        // we create new free block with block->size == nunits
+        add_block(required);
+        bp->nxt = &head_;
+    }*/
 }
 
 void Allocator::free(Pointer& ptr)
@@ -69,9 +142,13 @@ void Allocator::free(Pointer& ptr)
     Allocator::Header *bp, *p;
     //printf("FREE\n");
     
-    bp = (Allocator::Header *) ptr.get() -1; /* указатель на заголовок блока */
+    bp = (Allocator::Header *) ptr.get() - 1; /* указатель на заголовок блока */
     if (bp < base_ || bp >= base_ + sz_)
         throw AllocError(AllocErrorType::InvalidFree, "attempt to free memory at the invalid address");
+    
+    *(bp->idx) = nullptr; // remove indirect address
+    bp->idx = nullptr;    // this block is free now
+    ptr.reset();
     
     for (p = freep_; !(bp > p && bp < p->nxt); p = p->nxt)
         if (p >= p->nxt && (bp > p || bp < p->nxt))
@@ -93,29 +170,34 @@ void Allocator::free(Pointer& ptr)
     //printf("*bp->ptr = %p\n", *bp->ptr);
     
     //*(bp->ptr) = nullptr;
-    *bp->ptr = nullptr;
-    bp->ptr = nullptr;   // mark block as unused
+    //*bp->ptr = nullptr;
+    //bp->ptr = nullptr;   // mark block as unused
     //printf("free bp->ptr = %p\n", bp->ptr);
     //ptr.self_ = nullptr;
+    //p->idx = nullptr;
     freep_ = bp;  // points to freed block
 }
 
 void Allocator::defrag()
 {
+    //dump();
+    
     Allocator::Header* start = (Allocator::Header*) base_, *p, *to;
-    for (to = p = start; p != top_; p += p->size + 1)
-        if (p->ptr) {  // block is in use
+    for (to = p = start; p != top_; p += p->size)
+        if (p->idx) {  // block is in use
             // TODO debug printf
-            memmove(to, p, sizeof(Allocator::Header) * (p->size + 1));
-            *to->ptr = (void*) (to + 1);
-            to += to->size + 1;
+            memmove(to, p, sizeof(Allocator::Header) * (p->size));
+            *(to->idx) = to;
+            to += to->size;
         }
     // now 'to' points on first unused Header
     head_.nxt = to;
     to->nxt = &head_;
-    to->ptr = nullptr;
-    to->size = top_ - to - 1;
+    to->idx = nullptr;
+    to->size = top_ - to;
     freep_ = to;
+    
+    //dump();
 }
 
 std::string Allocator::dump() const
@@ -128,9 +210,9 @@ std::string Allocator::dump() const
     printf("top      %p\n", top_);
     printf("freep    %p\n", freep_);
     printf("---------------------------------------------------------------\n");
-    printf("  addr              next             ptr            size\n");
-    for (p = start; p != top_; p += p->size + 1) {
-        printf("%-12p [ %-16p | %-16p | %-2d ]\n", p, p->nxt, p->ptr/* ? *p->ptr : nullptr*/ , p->size);
+    printf("  addr              next             idx            size\n");
+    for (p = start; p != top_; p += p->size) {
+        printf("%-12p [ %-16p | %-16p | %-2d ]\n", p, p->nxt, p->idx, p->size);
     }
     printf("%p\n", p);
     printf("===============================================================\n\n");
@@ -150,6 +232,7 @@ void Allocator::add_block(size_t nunits)
     if (top_ == nullptr) {  // no blocks yet
 		//printf("first time\n");
         top_ = (Header*) base_;
+        top_->idx = nullptr;
     }
     // проматываем указатель на свободные блоки до момента, пока он еще меньше top
     Allocator::Header* prevp = freep_;
@@ -165,16 +248,17 @@ void Allocator::add_block(size_t nunits)
     printf("dist  = %d\n", top_ - (Header*)base_);
     #endif
     
-    if ((char*) (top_ + nunits) > (char*) base_ + sz_)
+    if ((void*)(top_ + nunits) >= (void*)ind_top_)
 		throw AllocError(AllocErrorType::NoMemory, "not enough memory");
     
     //top_->nxt = head_.nxt;
     top_->size = nunits;
-    top_->ptr = nullptr; // this block is unused now
+    //top_->ptr = nullptr; // this block is unused now
     top_->nxt = &head_;
+    top_->idx = nullptr;
     prevp->nxt = top_;
     freep_ = top_;
-    top_ += nunits + 1;
+    top_ += nunits;
     
     #ifdef DEBUG
     printf("new block size %d allocated\n", nunits+1);
@@ -186,8 +270,50 @@ void Allocator::add_block(size_t nunits)
     #endif
 }
 
+size_t Allocator::add_block_info(Header** h)
+{
+    /*// search for empty cell
+    // loop over all cells, beginning from last used cell
+    for (Header* p = ind_curr_; p < base_ + sz_; p--) {
+        
+        // go to begin
+        if (p == ind_top_)
+            p = 
+    }*/
+    
+    //dump();
+    
+    //printf("add block info\n");
+    Header** end = (Header**) (base_ + sz_);
+    if ((void*) ind_top_ == (void*) top_)
+        throw AllocError(AllocErrorType::NoMemory, "not enough memory to story auxiliary information");
+    
+    ind_top_--;
+    Header** p = ind_top_;
+    (*h)->idx = p;
+    *p = *h;
+    size_t idx = end - p - 1;
+    
+    /*printf("end = %p\n", end);
+    printf("idx = %d\n", idx);
+    printf("p = %p\n", p);
+    printf("*p = %p\n", *p);*/
+    
+    //dump();
+    
+    return idx;
+}
 
-
+void* Allocator::get(size_t idx)
+{
+    //printf("get idx = %d\n", idx);
+    Header** end = (Header**) (base_ + sz_);
+    //printf("end = %p\n", end);
+    //printf("end-1 = %p\n", end-1);
+    Header** p = end - idx - 1;
+    //printf("p = %p\n", p);
+    return (void*) (*p + 1);
+}
 
 
 
