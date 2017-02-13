@@ -32,6 +32,16 @@ Pointer& Pointer::operator=(const Pointer& p)
 	return *this;
 }
 
+bool Pointer::operator==(const Pointer& other)
+{
+	return (idx_ == other.idx_) && (allocator_ == other.allocator_);
+}
+
+bool Pointer::operator!=(const Pointer& other)
+{
+	return !(*this == other);
+}
+
 void* Pointer::get() const
 {
 	return (idx_ == NULL_PTR_IDX) ? nullptr : allocator_->get(idx_);
@@ -42,4 +52,26 @@ void* Pointer::get() const
 void Pointer::reset()
 {
 	idx_ = NULL_PTR_IDX;
+}
+
+// helper functions
+
+bool operator==(const Pointer& p1, void* p2)
+{
+	return p1.get() == p2;
+}
+
+bool operator==(void* p1, const Pointer& p2)
+{
+	return p1 == p2.get();
+}
+
+bool operator!=(const Pointer& p1, void* p2)
+{
+	return !(p1 == p2);
+}
+
+bool operator!=(void* p1, const Pointer& p2)
+{
+	return !(p1 == p2);
 }

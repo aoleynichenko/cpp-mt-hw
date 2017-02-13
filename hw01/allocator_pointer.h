@@ -2,18 +2,17 @@
 #define ALLOCATOR_POINTER
 
 #include <stddef.h>
-
-// Forward declaration. Do not include real class definition
-// to avoid expensive macros calculations and increase compile speed
 #include "allocator.h"
 
 class Pointer {
 public:
     Pointer();
-    Pointer(const Pointer& p);
+    Pointer(const Pointer&);
     ~Pointer();
     
-    Pointer& operator=(const Pointer& p);
+    Pointer& operator=(const Pointer&);
+    bool operator==(const Pointer&);
+    bool operator!=(const Pointer&);
     
     void* get() const;
     
@@ -26,5 +25,10 @@ private:
     
     void reset();
 };
+
+bool operator==(const Pointer&, void*);
+bool operator==(void*, const Pointer&);
+bool operator!=(const Pointer&, void*);
+bool operator!=(void*, const Pointer&);
 
 #endif //ALLOCATOR_POINTER
