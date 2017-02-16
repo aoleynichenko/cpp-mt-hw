@@ -9,20 +9,20 @@ public:
     Pointer();
     Pointer(const Pointer&);
     ~Pointer();
-
+    
     Pointer& operator=(const Pointer&);
     bool operator==(const Pointer&);
     bool operator!=(const Pointer&);
-
+    
     void* get() const;
-
+    
     friend class Allocator;
 protected:
 	Pointer(size_t idx, Allocator* alc);
 private:
     size_t     idx_;
     Allocator* allocator_;
-
+    
     void reset();
 };
 

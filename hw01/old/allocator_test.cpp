@@ -15,7 +15,7 @@ TEST(Allocator, AllocInRange) {
 
     int size = 500;
 
-    Pointer p = a.alloc(size);
+    Pointer p = a.alloc(size);   
     char* v = reinterpret_cast<char*>(p.get());
 
     EXPECT_GE(v, buf);
@@ -88,11 +88,11 @@ TEST(Allocator, AllocNoMem) {
 
     vector<Pointer> ptr;
     try {
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 6; i++) {  // 6/5 of sizeof(buf) -> an exception should be thrown!
             ptr.push_back(a.alloc(size));
         }
 
-        EXPECT_TRUE(false);
+        EXPECT_TRUE(false);  // we should never reach this point!
     } catch (AllocError& e) {
         EXPECT_EQ(e.getType(), AllocErrorType::NoMemory);
     }
@@ -102,6 +102,7 @@ TEST(Allocator, AllocNoMem) {
     }
 }
 
+
 TEST(Allocator, AllocReuse) {
     Allocator a(buf, sizeof(buf));
 
@@ -110,7 +111,7 @@ TEST(Allocator, AllocReuse) {
 
     ASSERT_TRUE(fillUp(a, size, ptrs));
     a.free(ptrs[1]);
-
+    
     EXPECT_EQ(ptrs[1].get(), nullptr);
     ptrs[1] = a.alloc(size);
 
@@ -134,17 +135,18 @@ TEST(Allocator, DefragMove) {
     a.free(ptrs[1]);
     a.free(ptrs[10]);
     a.free(ptrs[15]);
-
-    ptrs.erase(ptrs.begin() + 15);
+    
+    ptrs.erase(ptrs.begin() + 15);  // remove these three smart pointers
     ptrs.erase(ptrs.begin() + 10);
     ptrs.erase(ptrs.begin() + 1);
+    
 
     for (Pointer& p : ptrs) {
         auto r = initialPtrs.insert(p.get());
         // Ensure inserted a new element.
         EXPECT_TRUE(r.second);
     }
-
+    
     a.defrag();
 
     bool moved = false;
@@ -273,15 +275,20 @@ TEST(Allocator, ReallocGrowInplace) {
     a.free(p2);
 }
 
+
 TEST(Allocator, ReallocShrink) {
     Allocator a(buf, sizeof(buf));
 
     int size = 135;
     Pointer p = a.alloc(size);
     writeTo(p, size);
-
+    
+    //a.dump();
+    
     void* ptr = p.get();
     a.realloc(p, size / 2);
+    
+    //a.dump();
 
     EXPECT_EQ(p.get(), ptr);
 
@@ -294,6 +301,7 @@ TEST(Allocator, ReallocShrink) {
     a.free(p);
     a.free(p2);
 }
+
 
 TEST(Allocator, ReallocGrow) {
     Allocator a(buf, sizeof(buf));
@@ -321,3 +329,4 @@ TEST(Allocator, ReallocGrow) {
     a.free(p);
     a.free(p2);
 }
+
