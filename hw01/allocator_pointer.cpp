@@ -42,6 +42,11 @@ bool Pointer::operator!=(const Pointer& other)
 	return !(*this == other);
 }
 
+Pointer::operator bool() const
+{
+		return *this != nullptr;
+}
+
 void* Pointer::get() const
 {
 	return (idx_ == NULL_PTR_IDX) ? nullptr : allocator_->get(idx_);

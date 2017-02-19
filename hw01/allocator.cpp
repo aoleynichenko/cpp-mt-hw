@@ -8,34 +8,33 @@
 Allocator::Allocator(void* base, size_t size)
     :   buf(base), bufsize(size)
 {
-    meta = (MetaInfo*) (buf + bufsize);
-    size_t sz = ((char*) meta - (char*) buf) / sizeof(void*);
-    addFree(buf, sz);
-    head.next->size = -((char*) meta - (char*) buf) / sizeof(void*);
-    printf("head.next->size = %d 0x%X\n", head.next->size, head.next->size);
-    printf("0s = 0x%X\n", 0L);
-    printf("-1 = 0x%X\n", -1);
-    printf("head.next->size > 0: %d\n", (head.next->size < 0));
+    meta = (MetaInfo*) ( (char*) buf + bufsize);
+    size_t sz = ((char*) meta - (char*) buf - sizeof(MetaInfo)) / sizeof(void*);
+    MetaInfo* first_block = addMeta(buf, sz);
+    first_block->setOccupied(false);
+    insertFree(first_block);
 }
 
 Pointer Allocator::alloc(size_t N) {
     size_t nunits = (N + sizeof(void*) - 1) / sizeof(void*) + 1;
 
     for (MetaInfo* p = head.next; p != nullptr; p = p->next) {
-        if (abs(p->size) == nunits) {
-            p->size *= -1; // free -> occupied
+        size_t sz = p->getSize();
+        if (sz == nunits) {
+            p->setOccupied(true); // free -> occupied
             MetaInfo* info = unlinkFree(p);
             return Pointer(indexOfInfo(info), this);
         }
-        else if (abs(p->size) >= nunits) {
+        else if (sz >= nunits) {
             // we return block of sizeof(void*)*bytes
             // tail remains free, we update its metainfo
             void* mem = (char*) buf + p->offs;
             MetaInfo* occ_meta = addMeta(mem, nunits);
+            occ_meta->setOccupied(true);
 
             void* mem_free = (char*) buf + p->offs + nunits * sizeof(void*);
             *((MetaInfo**) mem_free) = p;
-            p->size += nunits;
+            p->setSize(p->getSize() - nunits);
             p->offs = (char*) mem_free - (char*) buf;
 
             return Pointer(indexOfInfo(occ_meta), this);
@@ -44,36 +43,69 @@ Pointer Allocator::alloc(size_t N) {
     throw AllocError(AllocErrorType::NoMemory, "not enough memory");
 }
 
+void Allocator::realloc(Pointer& p, size_t N)
+{
+    size_t nunits = (N + sizeof(void*) - 1) / sizeof(void*) + 1;
+
+    void* from = p.get(); // will be nullptr if p == nullptr
+    free(p);
+    p = alloc(N);
+    void* to = p.get();
+    if (from) {
+        memmove(to, from, (nunits-1)*sizeof(void*));
+    }
+}
+
 void Allocator::free(Pointer& p)
 {
+    if (!p) {
+        return;
+    }
+
     MetaInfo* info = getMeta(p.idx_);
-    info->size *= -1;
+    info->setOccupied(false);
+    insertFree(info);
+
+    MetaInfo* last = getMeta(0);
+    char* t, *start = (char*) buf + info->offs;
+    char* lim = (char*) buf + last->offs + sizeof(void*) * last->getSize();
+    // merge this free block with subsequent free blocks in memory
+    for (t = start; t < lim; ) {
+        MetaInfo* hd = *((MetaInfo**) t);
+        if (hd->isOccupied()) {
+            break;
+        }
+        unlinkFree(hd);
+        t += hd->getSize() * sizeof(void*);
+    }
+    info->setSize((t - start) / sizeof(void*));
+    info->setOccupied(false);
     insertFree(info);
     p.reset();
 }
-#include <limits.h>
+
 void Allocator::defrag()
 {
-    MetaInfo* last = getMeta(0);
-    char* lim = (char*) buf + last->offs + sizeof(void*) * abs(last->size);
+    MetaInfo* last = getMeta(0);  // last free block
+    char* lim = (char*) buf + last->offs + sizeof(void*) * last->getSize();
     char* p, *to;
+
     for (to = p = (char*) buf; p < lim; ) {
         MetaInfo* hd = *((MetaInfo**) p);
-        int offs = p - (char*) buf;
-        printf("SIZE=%d %u  ", hd->size, hd->size);
-        /*int64_t zero = 0;
-        printf(" > 0: %d  ", hd->size > zero);*/
-        if (/*hd->size > 0*/(!hd->prev) && (!hd->next)) {
-            printf("move from offs %d  size = %d\n", offs, hd->size);
-            printf("hd->prev = %p   hd->next = %p\n", hd->prev, hd->next);
-            memmove(to, p, abs(hd->size)*sizeof(void*));
-            *((MetaInfo**)to) = hd;
-            to += abs(hd->size)*sizeof(void*);
+        if (hd->isOccupied()) {
+            memmove(to, p, hd->getSize() * sizeof(void*));
+            *((MetaInfo**) to) = hd;
+            hd->offs = to - (char*) buf;
+            to += hd->getSize() * sizeof(void*);
         }
-        else printf("ignore\n");
-        p += abs(hd->size) * sizeof(void*);
+        p += hd->getSize() * sizeof(void*);
     }
-    last->size = -((char*) meta - to)/sizeof(void*);
+
+    // merge all the remaining bytes into a single free block
+    *((MetaInfo**) to) = last;
+    last->offs = to - (char*) buf;
+    last->setSize(((char*) meta - to) / sizeof(void*));
+    last->setOccupied(false);
     head.next = last;
     last->prev = &head;
 }
@@ -86,70 +118,43 @@ std::string Allocator::dump()// const
     printf("head.next = %p\n", head.next);
     printf("&head = %p\n", &head);
     for (auto p = meta; p != end; p++, i++) {
-        printf("%d   %p   { offs=%d prev=%p next=%p size=%d}\n", i, p, p->offs, p->prev, p->next, p->size);
+        printf("%d   %p   { offs=%d prev=%p next=%p size=%d occ=%s}\n", i, p, p->offs, p->prev, p->next, p->getSize(), p->isOccupied()?"true":"false");
     }
     printf("--------------------------------------------------------------------\n");
     MetaInfo* last = getMeta(0);
-    char* lim = (char*) buf + last->offs + sizeof(void*) * abs(last->size);
+    char* lim = (char*) buf + last->offs + sizeof(void*) * last->getSize();
     for (char* p = (char*) buf; p < lim; ) {
         MetaInfo* hd = *((MetaInfo**) p);
         int offs = p - (char*) buf;
-        printf("%d  addr metainf = %p   size = %d\n", offs, hd, hd->size);
-        p += abs(hd->size) * sizeof(void*);
+        printf("%d  addr metainf = %p   size = %d  occ=%s\n", offs, hd, hd->getSize(), hd->isOccupied()?"true":"false");
+        p += hd->getSize() * sizeof(void*);
     }
     printf("====================================================================\n\n");
     return "";
 }
 
-Allocator::MetaInfo::MetaInfo()
-    :   next(nullptr), prev(nullptr), size(0), offs(0)
-{
-}
-
 // private methods
-// ВСЕ ДЕЛО В УКАЗАТЕЛЕ HEAD! unlink не затирает в нем данные!
-Allocator::MetaInfo* Allocator::addFree(void* start, size_t nunits)
-{
-  /*MetaInfo* last = getMeta(0);
-  char* lim = (char*) buf + last->offs + sizeof(void*) * abs(last->size);
-  if (lim >= (char*)(meta-1))
-    throw AllocError(AllocErrorType::NoMemory, "not enough memory for metainfo");
-    last->size -= sizeof(MetaInfo) / sizeof(void*);
-*/
-    meta--;
-    meta->size = (-1) * nunits;
-    meta->offs = (char*) start - (char*) buf;
-    *((MetaInfo**) start) = meta;
-
-    return insertFree(meta);
-}
 
 Allocator::MetaInfo* Allocator::addMeta(void* start, size_t nunits)
 {
-    /*printf("add meta\n");
-    printf("meta = %p\n", meta);*/
-
     MetaInfo* last = getMeta(0);
-//    printf("last = %p\n", last);
-    char* lim = (char*) buf + last->offs + sizeof(void*) * abs(last->size);
-//    printf("last size = %d\n", last->size);
-//    printf("lim = %p (%s meta)\n", lim, (lim < (char*) meta) ? "<" : ">=");
-  /*  if (lim >= (char*)(meta-1))
-      throw AllocError(AllocErrorType::NoMemory, "not enough memory for metainfo");
-*/
+    char* lim = (char*) buf + last->offs;
+    if (lim >= (char*)(meta-1)) {
+        throw AllocError(AllocErrorType::NoMemory, "not enough memory for metainfo");
+    }
 
     meta--;
-    last->size = (-1) * ((char*) meta - ((char*)buf + last->offs)) / sizeof(void*);
-//    printf("last->size = %d\n", last->size);
-    meta->size = nunits;
+    // decrease size of last free block
+    last->setSize(((char*) meta - ((char*)buf + last->offs)) / sizeof(void*));
+    meta->setSize(nunits);
     meta->offs = (char*) start - (char*) buf;
     *((MetaInfo**) start) = meta;
     return meta;
 }
 
+// removes metainfo from double-linked list if free blocks
 Allocator::MetaInfo* Allocator::unlinkFree(Allocator::MetaInfo* info)
 {
-    //printf("unlink free. info->prev = %p  info->next = %p\n", info->prev, info->next);
     if (info->prev) {
         info->prev->next = info->next;
         info->prev = nullptr;
@@ -170,7 +175,7 @@ void* Allocator::get(size_t idx)
 
 size_t Allocator::indexOfInfo(Allocator::MetaInfo* info)
 {
-    MetaInfo* end = (MetaInfo*) (buf + bufsize);
+    MetaInfo* end = (MetaInfo*) ((char*) buf + bufsize);
     size_t index = end - info - 1;
     return index;
 }
@@ -182,11 +187,9 @@ Allocator::MetaInfo* Allocator::getMeta(size_t idx)
     return info;
 }
 
-
-// insert metainfo to the beginning of double-linking list
+// insert metainfo to the beginning of double-linked list of free blocks
 Allocator::MetaInfo* Allocator::insertFree(Allocator::MetaInfo* info)
 {
-    printf("insert free\n");
     if (head.next) {
         head.next->prev = info;
     }
@@ -195,4 +198,40 @@ Allocator::MetaInfo* Allocator::insertFree(Allocator::MetaInfo* info)
     head.next = info;
 
     return info;
+}
+
+// class Allocator::MetaInfo
+
+Allocator::MetaInfo::MetaInfo()
+    :   next(nullptr), prev(nullptr), size(0), offs(0)
+{
+}
+
+const size_t Allocator::MetaInfo::sign_mask = 0x8000000000000000;
+
+bool Allocator::MetaInfo::isOccupied() const
+{
+    return (size & sign_mask) != 0;
+}
+
+void Allocator::MetaInfo::setOccupied(bool occ)
+{
+    if (occ) {
+        size |= sign_mask;
+    }
+    else {
+        size = (size << 1) >> 1;
+    }
+}
+
+void Allocator::MetaInfo::setSize(size_t sz)
+{
+    bool occ = isOccupied();
+    size = sz;
+    setOccupied(occ);
+}
+
+size_t Allocator::MetaInfo::getSize() const
+{
+    return (size << 1) >> 1;
 }

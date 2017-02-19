@@ -13,6 +13,7 @@ public:
     Pointer& operator=(const Pointer&);
     bool operator==(const Pointer&);
     bool operator!=(const Pointer&);
+    operator bool() const;
 
     void* get() const;
 

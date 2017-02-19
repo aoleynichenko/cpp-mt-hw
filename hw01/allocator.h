@@ -28,7 +28,7 @@ public:
      * @param p Pointer
      * @param N size_t
      */
-    void realloc(Pointer& p, size_t N) {}
+    void realloc(Pointer& p, size_t N);
 
     /**
      * TODO: semantics
@@ -52,10 +52,16 @@ private:
     struct MetaInfo {
       MetaInfo* next;
       MetaInfo* prev;
-      int64_t  size;
-      size_t   offs;
+      size_t  offs;
 
       MetaInfo();
+      bool isOccupied() const;
+      void setOccupied(bool);
+      void setSize(size_t);
+      size_t getSize() const;
+    private:
+      size_t size;
+      static const size_t sign_mask;
     };
 
     MetaInfo head;
@@ -63,7 +69,7 @@ private:
     void*  buf;
     size_t bufsize;
 
-    MetaInfo* addFree(void* start, size_t nbytes);
+//    MetaInfo* addFree(void* start, size_t nbytes);
     MetaInfo* addMeta(void* start, size_t nbytes);
     MetaInfo* unlinkFree(MetaInfo* info);
     void* get(size_t idx);

@@ -8,7 +8,7 @@
 #include "allocator_pointer.h"
 
 using namespace std;
-char buf[1000];//[65536];
+char buf[65536];
 
 TEST(Allocator, AllocInRange) {
     Allocator a(buf, sizeof(buf));
@@ -61,7 +61,7 @@ static bool fillUp(Allocator& a, size_t allocSize, vector<Pointer>& out) {
 
     return false;
 }
-/*
+
 TEST(Allocator, AllocReadWrite) {
     Allocator a(buf, sizeof(buf));
 
@@ -121,7 +121,7 @@ TEST(Allocator, AllocReuse) {
         EXPECT_TRUE(isDataOk(p, size));
         a.free(p);
     }
-}*/
+}
 
 TEST(Allocator, DefragMove) {
     Allocator a(buf, sizeof(buf));
@@ -131,20 +131,14 @@ TEST(Allocator, DefragMove) {
     int size = 135;
 
     ASSERT_TRUE(fillUp(a, size, ptrs));
-    printf("size = %d\n", ptrs.size());
+
     a.free(ptrs[1]);
-    //a.free(ptrs[5]);
-    //a.free(ptrs[15]);
+    a.free(ptrs[10]);
+    a.free(ptrs[15]);
 
-    printf("all freed\n");
-
-    //ptrs.erase(ptrs.begin() + 15);
-    //ptrs.erase(ptrs.begin() + 5);
+    ptrs.erase(ptrs.begin() + 15);
+    ptrs.erase(ptrs.begin() + 10);
     ptrs.erase(ptrs.begin() + 1);
-
-    printf("all erased\n");
-
-    a.dump();
 
     for (Pointer& p : ptrs) {
         auto r = initialPtrs.insert(p.get());
@@ -152,9 +146,7 @@ TEST(Allocator, DefragMove) {
         EXPECT_TRUE(r.second);
     }
 
-    printf("begin defrag\n");
     a.defrag();
-    printf("defrag ended\n");
 
     bool moved = false;
     for (Pointer& p : ptrs) {
@@ -169,7 +161,7 @@ TEST(Allocator, DefragMove) {
         a.free(p);
     }
 }
-/*
+
 TEST(Allocator, DefragMoveTwice) {
     Allocator a(buf, sizeof(buf));
 
@@ -329,4 +321,4 @@ TEST(Allocator, ReallocGrow) {
 
     a.free(p);
     a.free(p2);
-}*/
+}
