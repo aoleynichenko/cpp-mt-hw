@@ -1,7 +1,7 @@
 #ifndef ALLOCATOR
 #define ALLOCATOR
-#include <string>
 #include <stdint.h>
+#include <string>
 
 // Forward declaration. Do not include real class definition
 // to avoid expensive macros calculations and increase compile speed
@@ -49,13 +49,13 @@ public:
     std::string dump() const;
 
     friend class Pointer;
-private:
 
+private:
     class MetaInfo {
     public:
         MetaInfo* next;
         MetaInfo* prev;
-        size_t  offs;
+        size_t offs;
 
         MetaInfo();
         bool isUsed() const;
@@ -63,6 +63,7 @@ private:
         void setOccupied(bool);
         void setSize(size_t);
         size_t getSize() const;
+
     private:
         size_t size;
         static const size_t sign_mask;
@@ -70,7 +71,7 @@ private:
 
     MetaInfo head;
     MetaInfo* meta;
-    void*  buf;
+    void* buf;
     size_t bufsize;
 
     MetaInfo* addMeta(void* start, size_t nbytes);
