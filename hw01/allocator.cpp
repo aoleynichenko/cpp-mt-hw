@@ -92,13 +92,17 @@ void Allocator::defrag()
 
     for (to = p = (char*) buf; p < lim; ) {
         MetaInfo* hd = *((MetaInfo**) p);
+        size_t sz = hd->getSize();
         if (hd->isOccupied()) {
-            memmove(to, p, hd->getSize() * sizeof(void*));
+            memmove(to, p, sz * sizeof(void*));
             *((MetaInfo**) to) = hd;
             hd->offs = to - (char*) buf;
-            to += hd->getSize() * sizeof(void*);
+            to += sz * sizeof(void*);
         }
-        p += hd->getSize() * sizeof(void*);
+        else {
+            unlinkFree(hd);
+        }
+        p += sz * sizeof(void*);
     }
 
     // merge all the remaining bytes into a single free block
@@ -120,6 +124,18 @@ std::string Allocator::dump() const
 Allocator::MetaInfo* Allocator::addMeta(void* start, size_t nunits)
 {
     MetaInfo* last = getMeta(0);
+
+    // try to reuse unused metainformation object
+    for (MetaInfo* mi = meta; mi < last; mi++) {
+        if (!mi->isUsed()) {
+            mi->setSize(nunits);
+            mi->offs = (char*) start - (char*) buf;
+            *((MetaInfo**) start) = mi;
+            return mi;
+        }
+    }
+
+    // no MetaInfo objects found to be reused; create a new one
     char* lim = (char*) buf + last->offs;
     if (lim >= (char*)(meta-1)) {
         throw AllocError(AllocErrorType::NoMemory, "not enough memory for metainfo");
@@ -195,6 +211,12 @@ bool Allocator::MetaInfo::isOccupied() const
 {
     return (size & sign_mask) != 0;
 }
+
+bool Allocator::MetaInfo::isUsed() const
+{
+    return isOccupied() || this->next || this->prev;
+}
+
 void Allocator::MetaInfo::setOccupied(bool occ)
 {
     if (occ) {
