@@ -110,26 +110,8 @@ void Allocator::defrag()
     last->prev = &head;
 }
 
-std::string Allocator::dump()// const
+std::string Allocator::dump() const
 {
-    printf("\n================================ DUMP ==============================\n");
-    Allocator::MetaInfo* end = (Allocator::MetaInfo*) (buf + bufsize);
-    int i = 1;
-    printf("head.next = %p\n", head.next);
-    printf("&head = %p\n", &head);
-    for (auto p = meta; p != end; p++, i++) {
-        printf("%d   %p   { offs=%d prev=%p next=%p size=%d occ=%s}\n", i, p, p->offs, p->prev, p->next, p->getSize(), p->isOccupied()?"true":"false");
-    }
-    printf("--------------------------------------------------------------------\n");
-    MetaInfo* last = getMeta(0);
-    char* lim = (char*) buf + last->offs + sizeof(void*) * last->getSize();
-    for (char* p = (char*) buf; p < lim; ) {
-        MetaInfo* hd = *((MetaInfo**) p);
-        int offs = p - (char*) buf;
-        printf("%d  addr metainf = %p   size = %d  occ=%s\n", offs, hd, hd->getSize(), hd->isOccupied()?"true":"false");
-        p += hd->getSize() * sizeof(void*);
-    }
-    printf("====================================================================\n\n");
     return "";
 }
 
@@ -213,7 +195,6 @@ bool Allocator::MetaInfo::isOccupied() const
 {
     return (size & sign_mask) != 0;
 }
-
 void Allocator::MetaInfo::setOccupied(bool occ)
 {
     if (occ) {

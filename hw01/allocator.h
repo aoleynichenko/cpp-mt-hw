@@ -44,7 +44,7 @@ public:
     /**
      * TODO: semantics
      */
-    std::string dump();// const;
+    std::string dump() const;
 
     friend class Pointer;
 private:
