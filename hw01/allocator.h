@@ -18,31 +18,33 @@ public:
     Allocator(void* base, size_t size);
 
     /**
-     * TODO: semantics
+     * Allocate N bytes. Returns smart pointer which remains valid
+     * during defragmentation.
      * @param N size_t
      */
     Pointer alloc(size_t N);
 
     /**
-     * TODO: semantics
+     * Increase size of memory chunk up to N bytes.
      * @param p Pointer
      * @param N size_t
      */
     void realloc(Pointer& p, size_t N);
 
     /**
-     * TODO: semantics
+     * Free allocated block. All smart pointers associated with this block
+     * will contain nullptr.
      * @param p Pointer
      */
     void free(Pointer& p);
 
     /**
-     * TODO: semantics
+     * Perform memory defragmentation.
      */
     void defrag();
 
     /**
-     * TODO: semantics
+     * Print dump of allocator; is a dummy method.
      */
     std::string dump() const;
 
