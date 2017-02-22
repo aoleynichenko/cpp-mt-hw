@@ -118,8 +118,8 @@ std::string Allocator::dump() const {
 Allocator::MetaInfo* Allocator::addMeta(void* start, size_t nunits) {
     MetaInfo* last = getMeta(0);
 
-    // try to reuse unused metainformation object
-    for (MetaInfo* mi = meta; mi < last; mi++) {
+    // try to reuse unused metainformation objects
+    for (MetaInfo* mi = last-1; mi >= meta; mi--) {
         if (!mi->isUsed()) {
             mi->setSize(nunits);
             mi->offs = (char*)start - (char*)buf;

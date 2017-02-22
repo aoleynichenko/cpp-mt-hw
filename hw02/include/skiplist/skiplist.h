@@ -64,7 +64,27 @@ public:
         int level = MAXHEIGHT-1;
         IndexNode<Key,Value>* ix = aHeadIdx[level];
         for (; ix != pTailIdx; ix = (IndexNode<Key,Value>*) &ix->next()) {
-            printf("next\n");
+            IndexNode<Key,Value>* nxt = (IndexNode<Key,Value>*) &ix->next();
+            const Key& nxt_key = nxt->key();
+            if (nxt == pTailIdx) {
+                // добежали до конца, вставляем пирамидку
+            }
+            else if (nxt_key > key) {
+                level--;
+                // ix = ix->down()
+                // шаг вниз.
+                // если шагать уже некуда,
+                // вставить пирамидку прямо сюда, перед ix
+            }
+            else if (nxt_key == key) {  // ключ найден, обновим значение
+                Value& old = const_cast<Value&>(ix->value());
+                Value ret = old;
+                old = value;
+                return &old;
+            }
+            else  // просто продолжаем перебор элементов списка
+              continue;
+
         }
         return nullptr;
     };

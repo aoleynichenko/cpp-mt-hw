@@ -25,6 +25,8 @@ public:
    * Returns next node in the sequence
    */
     virtual Node& next() const = 0;
+
+    virtual Value* value(Value* new_val) = 0;
 };
 
 /**
@@ -61,6 +63,10 @@ public:
         assert(pValue != nullptr);
         return *pValue;
     };
+
+    virtual Value* value(Value* new_val) {
+
+    }
 
     /**
    * Returns next node in the sequence
