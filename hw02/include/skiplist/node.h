@@ -21,6 +21,7 @@ public:
    */
   virtual const Value& value() const = 0;
 
+  virtual const Value* value(const Value* new_val) = 0;
   /**
    * Returns next node in the sequence
    */
@@ -59,6 +60,12 @@ public:
     assert(pValue != nullptr);
     return *pValue;
   };
+
+  virtual const Value* value(const Value* new_val) {
+    const Value* old = pValue;
+    pValue = new_val;
+    return old;
+  }
 
   /**
    * Returns next node in the sequence
@@ -108,6 +115,10 @@ public:
     return pRoot->value();
   };
 
+  virtual const Value* value(const Value* new_val) {
+    return pRoot->value(new_val);
+  }
+
   /**
    * Returns next node in the sequence
    */
@@ -121,5 +132,9 @@ public:
   virtual void next(IndexNode<Key, Value> *next) {
     pNext = next;
   };
+
+  virtual Node<Key,Value>* down() {
+    return pDown;
+  }
 };
 #endif // __NODE_H

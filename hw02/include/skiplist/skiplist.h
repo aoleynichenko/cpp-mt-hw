@@ -61,6 +61,31 @@ public:
    * @return old value for the given key or nullptr
    */
   virtual Value* Put(const Key& key, const Value& value) const {
+    int lvl = MAXHEIGHT - 1;
+    for (IndexNode<Key,Value>* ix = aHeadIdx[MAXHEIGHT-1]; ix != pTailIdx; ) {
+      IndexNode<Key,Value>* nxt = dynamic_cast<IndexNode<Key,Value>*>(&ix->next());
+      // достигли конца списка, вставляем элемент сюда
+      if (nxt == pTailIdx) {
+        // вставить сюда
+        return nullptr;
+      }
+      else if (key == ix->key()) { // точное совпадение ключей -> заменяем Value
+        Value* v = new Value(value);
+        return const_cast<Value*>(ix->value(v)); // говнокод!
+      }
+      else if (key < nxt->key()) {
+        // идем дальше по списку
+        ix = nxt;
+      }
+      else { // key > next.key
+        if (lvl == 0) {
+          // вставить пирамидку
+          return nullptr;
+        }
+        lvl--;
+        ix = dynamic_cast<IndexNode<Key,Value>*>(ix->down()); // и цикл продолжается
+      }
+    }
     return nullptr;
   };
 
