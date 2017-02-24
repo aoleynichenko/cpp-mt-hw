@@ -6,10 +6,6 @@ using namespace std;
 
 SkipList<int, string, 8> sk;
 
-TEST(SkipListTest, Put) {
-  sk.Put(12, "manul");
-}
-
 TEST(SkipListTest, Empty) {
   ASSERT_EQ(nullptr, sk.Get(100));
   ASSERT_EQ(sk.cend(), sk.cbegin())  << "Begin iterator fails";
