@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include <string>
 #include <skiplist/skiplist.h>
+#include <cstdio>
 
 using namespace std;
 
@@ -33,4 +34,15 @@ TEST(SkipListTest, SimplePut) {
   ASSERT_EQ(10, it.key())               << "Iterator key is correct";
   ASSERT_EQ(string("test"), it.value()) << "Iterator value is correct";
   ASSERT_EQ(string("test"), *it)        << "Iterator value is correct";
+}
+
+TEST(SkipListTest, IterateOver) {
+  sk.Put(5, "five");
+  sk.Put(6, "six");
+  sk.Put(1, "one");
+  sk.Put(9, "nine");
+  sk.Put(3, "three");
+
+  for (auto p = sk.cbegin(); p != sk.cend(); p++)
+    printf("%d -> %s\n", p.key(), p.value().c_str());
 }
