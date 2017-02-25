@@ -35,12 +35,12 @@ public:
     return pCurrent->value();
   };
 
-  virtual bool operator==(const Iterator &) const {
-    return false;
+  virtual bool operator==(const Iterator &other) const {
+    return pCurrent == other.pCurrent;
   };
 
-  virtual bool operator!=(const Iterator &) const {
-    return false;
+  virtual bool operator!=(const Iterator &other) const {
+    return !(*this == other);
   };
 
 

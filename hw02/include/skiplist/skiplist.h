@@ -63,71 +63,15 @@ public:
    * @param value to be added
    * @return old value for the given key or nullptr
    */
-
   virtual Value* Put(const Key& key, const Value& value) const {
-    int lvl = MAXHEIGHT - 1;
-    IndexNode<Key,Value>* trace[MAXHEIGHT];
-
-    for (IndexNode<Key,Value>* ix = aHeadIdx[MAXHEIGHT-1]; ix != pTailIdx; ) {
-      IndexNode<Key,Value>* nxt = dynamic_cast<IndexNode<Key,Value>*>(&ix->next());
-      //printf("ix = %p   nxt = %p\n", ix, nxt);
-      // достигли конца списка, вставляем элемент сюда
-      // то есть ПОСЛЕ текущего элемента списка
-      if (nxt == pTailIdx || key < nxt->key()) {
-        // вставить сюда если lvl == 0
-        // иначе спуститься пониже
-        //printf("goto level %d -> ", lvl);
-        //printf("%d\n", lvl);
-        trace[lvl] = ix;
-        // descent
-        lvl--;
-        ix = dynamic_cast<IndexNode<Key,Value>*>(ix->down());
-        // fill trace
-        //continue;
-      }
-      else if (key > nxt->key()) {
-        // идем дальше по списку
-        ix = nxt;
-        continue;
-      }
-      else { // (key == ix->key()) { // точное совпадение ключей -> заменяем Value
-        Value* v = new Value(value);
-        return const_cast<Value*>(ix->value(v));
-      }
-      if (lvl == 0) {
-        trace[0] = ix;
-        /*printf("level = 0 -> do insert\n");
-        printf("pTailIdx = %p\n", pTailIdx);
-        printf("trace[] = \n");
-        for (int i = 0; i < MAXHEIGHT; i++)
-          printf("%2d %p -> %p\n", i, trace[i], &trace[i]->next());*/
-        // вставляем элемент
-        DataNode<Key,Value>* curr_data = dynamic_cast<DataNode<Key,Value>*>(ix->down());
-        DataNode<Key,Value>* data = new DataNode<Key,Value>(new Key(key), new Value(value));
-        Node<Key, Value> *down = data;
-
-        data->next(dynamic_cast<DataNode<Key,Value>*>(&curr_data->next()));
-        curr_data->next(data);
-        for (int i=0; i < MAXHEIGHT; i++) {
-          if (i != 0 && (rand() % 2 == 0)) {
-              break;
-          }
-          IndexNode<Key, Value>* prev = trace[i];
-          IndexNode<Key, Value>* node = new IndexNode<Key, Value>(down, data);
-          node->next(dynamic_cast<IndexNode<Key,Value>*>(&prev->next()));
-          prev->next(node);
-          down = node;
-        }
-        return nullptr;
-      }
-    }
+    return insert_pair(key, value);
   };
 
   /**
    * Put value only if there is no assosiation with key in
    * the list and returns nullptr
    *
-   * If there is an established assosiation with the key already
+   * If there is an established assosiation with the key
    * method doesn't nothing and returns existing value
    *
    * @param key key to be assigned with value
@@ -135,7 +79,7 @@ public:
    * @return existing value for the given key or nullptr
    */
   virtual Value* PutIfAbsent(const Key& key, const Value& value) {
-    return nullptr;
+    return insert_pair(key, value, false);
   };
 
   /**
@@ -172,7 +116,7 @@ public:
    * Return iterator onto very first key in the skiplist
    */
   virtual Iterator<Key, Value> cbegin() const {
-    return Iterator<Key,Value>(pTail);
+    return Iterator<Key,Value>(&pHead->next());
   };
 
   /**
@@ -189,5 +133,71 @@ public:
   virtual Iterator<Key, Value> cend() const {
     return Iterator<Key,Value>(pTail);
   };
+
+
+private:
+    Value* insert_pair(const Key& key, const Value& value, bool substitute = true) const {
+        int lvl = MAXHEIGHT - 1;
+        IndexNode<Key,Value>* trace[MAXHEIGHT];
+
+        for (IndexNode<Key,Value>* ix = aHeadIdx[MAXHEIGHT-1]; ix != pTailIdx; ) {
+          IndexNode<Key,Value>* nxt = dynamic_cast<IndexNode<Key,Value>*>(&ix->next());
+          //printf("ix = %p   nxt = %p\n", ix, nxt);
+          // достигли конца списка, вставляем элемент сюда
+          // то есть ПОСЛЕ текущего элемента списка
+          if (nxt == pTailIdx || key < nxt->key()) {
+            // вставить сюда если lvl == 0
+            // иначе спуститься пониже
+            //printf("goto level %d -> ", lvl);
+            //printf("%d\n", lvl);
+            trace[lvl] = ix;
+            // descent
+            lvl--;
+            ix = dynamic_cast<IndexNode<Key,Value>*>(ix->down());
+            // fill trace
+            //continue;
+          }
+          else if (key > nxt->key()) {
+            // идем дальше по списку
+            ix = nxt;
+            continue;
+          }
+          else { // (key == ix->key()) { // точное совпадение ключей -> заменяем Value
+            if (substitute) { // usual put
+              Value* v = new Value(value);
+              return ix->value(v);
+            }
+            else {  // put if absent
+              return &ix->value();
+            }
+          }
+          if (lvl == 0) {
+            trace[0] = ix;
+            /*printf("level = 0 -> do insert\n");
+            printf("pTailIdx = %p\n", pTailIdx);
+            printf("trace[] = \n");
+            for (int i = 0; i < MAXHEIGHT; i++)
+              printf("%2d %p -> %p\n", i, trace[i], &trace[i]->next());*/
+            // вставляем элемент
+            DataNode<Key,Value>* curr_data = dynamic_cast<DataNode<Key,Value>*>(ix->down());
+            DataNode<Key,Value>* data = new DataNode<Key,Value>(new Key(key), new Value(value));
+            Node<Key, Value> *down = data;
+
+            data->next(dynamic_cast<DataNode<Key,Value>*>(&curr_data->next()));
+            curr_data->next(data);
+            for (int i=0; i < MAXHEIGHT; i++) {
+              if (i != 0 && (rand() % 2 == 0)) {
+                  break;
+              }
+              IndexNode<Key, Value>* prev = trace[i];
+              IndexNode<Key, Value>* node = new IndexNode<Key, Value>(down, data);
+              node->next(dynamic_cast<IndexNode<Key,Value>*>(&prev->next()));
+              prev->next(node);
+              down = node;
+            }
+            return nullptr;
+          }
+        }
+    }
 };
 #endif // __SKIPLIST_H

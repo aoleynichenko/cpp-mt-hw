@@ -19,9 +19,9 @@ public:
   /**
    * Returns value assosiated with the given node
    */
-  virtual const Value& value() const = 0;
+  virtual Value& value() const = 0;
 
-  virtual const Value* value(const Value* new_val) = 0;
+  virtual Value* value(Value* new_val) = 0;
   /**
    * Returns next node in the sequence
    */
@@ -35,13 +35,13 @@ template<class Key, class Value>
 class DataNode : public Node<Key,Value> {
 private:
   const Key   *pKey;
-  const Value *pValue;
+  Value *pValue;
   DataNode<Key,Value>  *pNext;
 
 public:
-  DataNode(const Key *pKey, const Value *pValue)
+  DataNode(const Key *pKey, Value *pValue)
     : pKey(pKey), pValue(pValue), pNext(nullptr) {
-  }
+    }
 
   virtual ~DataNode() {}
 
@@ -56,13 +56,13 @@ public:
   /**
    * Returns value assosiated with the given node
    */
-  virtual const Value& value() const {
+  virtual Value& value() const {
     assert(pValue != nullptr);
     return *pValue;
   };
 
-  virtual const Value* value(const Value* new_val) {
-    const Value* old = pValue;
+  virtual Value* value(Value* new_val) {
+    Value* old = pValue;
     pValue = new_val;
     return old;
   }
@@ -110,12 +110,12 @@ public:
   /**
    * Returns value assosiated with the given node
    */
-  virtual const Value& value() const {
+  virtual Value& value() const {
     assert(pRoot != nullptr);
     return pRoot->value();
   };
 
-  virtual const Value* value(const Value* new_val) {
+  virtual Value* value(Value* new_val) {
     return pRoot->value(new_val);
   }
 
