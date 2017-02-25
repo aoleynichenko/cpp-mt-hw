@@ -100,13 +100,12 @@ public:
             //printf("nxt == pTailIdx: %s\n", (nxt == pTailIdx) ? "true" : "false");
             //if (nxt != pTailIdx)
             //    printf("nxt->key == %d\n", nxt->key());
-
-            if (nxt == pTailIdx || key < nxt->key()) {
+            if (nxt == pTailIdx || cmp_less(key, nxt->key())) {
                 lvl--;
                 ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
                 //printf("move down to lvl %d\n", lvl);
                 continue;
-            } else if (key > nxt->key()) {
+            } else if (cmp_less(nxt->key(), key)) {
                 ix = nxt;
                 //printf("move right");
                 continue;
@@ -145,7 +144,7 @@ public:
     };
 
     /**
-   * Returns iterator to the first key which is greater or equals to
+   * Returns iterator to the first key that is greater or equals to
    * the given key
    */
     virtual Iterator<Key, Value> cfind(const Key& min) const {
@@ -160,6 +159,9 @@ public:
     };
 
 private:
+    // comparator
+    Compare cmp_less;
+
     Value* insert_pair(const Key& key, const Value& value, bool substitute = true) const {
         int lvl = MAXHEIGHT - 1;
         IndexNode<Key, Value>* trace[MAXHEIGHT];
@@ -169,7 +171,7 @@ private:
             //printf("ix = %p   nxt = %p\n", ix, nxt);
             // достигли конца списка, вставляем элемент сюда
             // то есть ПОСЛЕ текущего элемента списка
-            if (nxt == pTailIdx || key < nxt->key()) {
+            if (nxt == pTailIdx || cmp_less(key, nxt->key())) {
                 // вставить сюда если lvl == 0
                 // иначе спуститься пониже
                 //printf("goto level %d -> ", lvl);
@@ -180,7 +182,7 @@ private:
                 ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
                 // fill trace
                 //continue;
-            } else if (key > nxt->key()) {
+            } else if (cmp_less(nxt->key(), key)) {
                 // идем дальше по списку
                 ix = nxt;
                 continue;

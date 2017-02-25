@@ -2,10 +2,17 @@
 #include <string>
 #include <skiplist/skiplist.h>
 #include <cstdio>
+#include <iostream>
+#include <functional>
 
 using namespace std;
 
 SkipList<int, string, 8> sk;
+
+TEST(SkipListTest, Compare) {
+    std::less<int> less;
+    cout << less(12, 3) << endl;
+}
 
 TEST(SkipListTest, Empty) {
   ASSERT_EQ(nullptr, sk.Get(100));
@@ -37,6 +44,8 @@ TEST(SkipListTest, SimplePut) {
 }
 
 TEST(SkipListTest, IterateOver) {
+  SkipList<int, string, 8> sk;
+
   sk.Put(5, "five");
   sk.Put(6, "six");
   sk.Put(1, "one");
