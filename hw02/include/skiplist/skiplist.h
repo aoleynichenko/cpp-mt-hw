@@ -1,8 +1,10 @@
 #ifndef __SKIPLIST_H
 #define __SKIPLIST_H
+#include <cstdlib>
 #include <functional>
 #include "node.h"
 #include "iterator.h"
+#include <stdio.h>
 
 /**
  * Skiplist interface
@@ -10,8 +12,8 @@
 template<class Key, class Value, size_t MAXHEIGHT, class Compare = std::less<Key>>
 class SkipList {
 private:
-  Node<Key, Value> *pHead;
-  Node<Key, Value> *pTail;
+  DataNode<Key, Value> *pHead;
+  DataNode<Key, Value> *pTail;
 
   IndexNode<Key, Value> *pTailIdx;
   IndexNode<Key, Value> *aHeadIdx[MAXHEIGHT];
@@ -23,6 +25,7 @@ public:
   SkipList() {
     pHead   = new DataNode<Key, Value>(nullptr, nullptr);
     pTail   = new DataNode<Key, Value>(nullptr, nullptr);
+    pHead->next(pTail);
 
     Node<Key, Value> *prev = pHead;
     pTailIdx = new IndexNode<Key, Value>(pTail, pTail);
@@ -60,33 +63,64 @@ public:
    * @param value to be added
    * @return old value for the given key or nullptr
    */
+
   virtual Value* Put(const Key& key, const Value& value) const {
     int lvl = MAXHEIGHT - 1;
+    IndexNode<Key,Value>* trace[MAXHEIGHT];
+
     for (IndexNode<Key,Value>* ix = aHeadIdx[MAXHEIGHT-1]; ix != pTailIdx; ) {
       IndexNode<Key,Value>* nxt = dynamic_cast<IndexNode<Key,Value>*>(&ix->next());
+      //printf("ix = %p   nxt = %p\n", ix, nxt);
       // достигли конца списка, вставляем элемент сюда
-      if (nxt == pTailIdx) {
-        // вставить сюда
-        return nullptr;
+      // то есть ПОСЛЕ текущего элемента списка
+      if (nxt == pTailIdx || key < nxt->key()) {
+        // вставить сюда если lvl == 0
+        // иначе спуститься пониже
+        //printf("goto level %d -> ", lvl);
+        //printf("%d\n", lvl);
+        trace[lvl] = ix;
+        // descent
+        lvl--;
+        ix = dynamic_cast<IndexNode<Key,Value>*>(ix->down());
+        // fill trace
+        //continue;
       }
-      else if (key == ix->key()) { // точное совпадение ключей -> заменяем Value
-        Value* v = new Value(value);
-        return const_cast<Value*>(ix->value(v)); // говнокод!
-      }
-      else if (key < nxt->key()) {
+      else if (key > nxt->key()) {
         // идем дальше по списку
         ix = nxt;
+        continue;
       }
-      else { // key > next.key
-        if (lvl == 0) {
-          // вставить пирамидку
-          return nullptr;
+      else { // (key == ix->key()) { // точное совпадение ключей -> заменяем Value
+        Value* v = new Value(value);
+        return const_cast<Value*>(ix->value(v));
+      }
+      if (lvl == 0) {
+        trace[0] = ix;
+        /*printf("level = 0 -> do insert\n");
+        printf("pTailIdx = %p\n", pTailIdx);
+        printf("trace[] = \n");
+        for (int i = 0; i < MAXHEIGHT; i++)
+          printf("%2d %p -> %p\n", i, trace[i], &trace[i]->next());*/
+        // вставляем элемент
+        DataNode<Key,Value>* curr_data = dynamic_cast<DataNode<Key,Value>*>(ix->down());
+        DataNode<Key,Value>* data = new DataNode<Key,Value>(new Key(key), new Value(value));
+        Node<Key, Value> *down = data;
+
+        data->next(dynamic_cast<DataNode<Key,Value>*>(&curr_data->next()));
+        curr_data->next(data);
+        for (int i=0; i < MAXHEIGHT; i++) {
+          if (i != 0 && (rand() % 2 == 0)) {
+              break;
+          }
+          IndexNode<Key, Value>* prev = trace[i];
+          IndexNode<Key, Value>* node = new IndexNode<Key, Value>(down, data);
+          node->next(dynamic_cast<IndexNode<Key,Value>*>(&prev->next()));
+          prev->next(node);
+          down = node;
         }
-        lvl--;
-        ix = dynamic_cast<IndexNode<Key,Value>*>(ix->down()); // и цикл продолжается
+        return nullptr;
       }
     }
-    return nullptr;
   };
 
   /**

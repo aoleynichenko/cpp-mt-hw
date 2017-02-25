@@ -15,6 +15,8 @@ TEST(SkipListTest, Empty) {
 TEST(SkipListTest, SimplePut) {
   SkipList<int, string, 8> sk;
 
+  sk.Put(11, "dynamic_cast is bullshit");
+  sk.Put(12, "const_cast is bullshit");
   const std::string *pOld = sk.Put(10, "test");
   ASSERT_EQ(nullptr, pOld);
 
