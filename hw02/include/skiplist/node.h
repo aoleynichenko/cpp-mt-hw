@@ -140,5 +140,9 @@ public:
     virtual Node<Key, Value>* down() {
         return pDown;
     }
+
+    virtual DataNode<Key, Value>* root() {
+        return dynamic_cast<DataNode<Key,Value>*>(pRoot);
+    }
 };
 #endif // __NODE_H

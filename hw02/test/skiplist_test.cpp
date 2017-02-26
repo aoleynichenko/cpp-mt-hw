@@ -54,8 +54,21 @@ TEST(SkipListTest, IterateOver) {
     printf("%d -> %s\n", p.key(), p.value().c_str());
 
   printf("--------------\n");
-  sk.Delete(6);
+  auto f = sk.cfind(1);
 
-  for (auto p = sk.cbegin(); p != sk.cend(); p++)
-    printf("%d -> %s\n", p.key(), p.value().c_str());
+  for (; f != sk.cend(); f++)
+    printf("%d -> %s\n", f.key(), f.value().c_str());
+}
+
+TEST(SkipListTest, Delete) {
+  SkipList<string, double, 8> sk;
+
+  sk.Put("pi", 3.1415);
+  sk.Put("e",  2.7183);
+  sk.Put("ln2", 0.6931);
+
+  double* pi = sk.Delete("pi");
+  ASSERT_NE(nullptr, pi);
+  printf("pi = %g\n", *pi);
+  ASSERT_EQ(sk.cfind("pi"), sk.cend());
 }
