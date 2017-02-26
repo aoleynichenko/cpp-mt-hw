@@ -45,12 +45,21 @@ public:
    * Destructor
    */
     virtual ~SkipList() {
-        delete pTailIdx;
+        // delete all index nodes
         for (int i = 0; i < MAXHEIGHT; i++) {
-            delete aHeadIdx[i];
+            for (Node<Key,Value>* ix = aHeadIdx[i]; ix != pTailIdx; ) {
+                Node<Key,Value>* nxt = &ix->next();
+                delete ix;
+                ix = nxt;
+            }
         }
+        delete pTailIdx;
 
-        delete pHead;
+        for (Node<Key,Value>* p = pHead; p != pTail; ) {
+            Node<Key,Value>* nxt = &p->next();
+            delete p;
+            p = nxt;
+        }
         delete pTail;
     }
 
@@ -132,7 +141,9 @@ public:
                 Value* ret_val = &nxt->value();
                 DataNode<Key, Value> *dix, *dnxt;
                 while (lvl >= 0) {
-                    ix->next(dynamic_cast<IndexNode<Key, Value>*>(&nxt->next()));
+                    IndexNode<Key,Value>* nx = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
+                    ix->next(nx);
+
                     if (lvl > 0) {
                         ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
                         nxt = dynamic_cast<IndexNode<Key, Value>*>(nxt->down());
@@ -140,9 +151,11 @@ public:
                         dix = dynamic_cast<DataNode<Key, Value>*>(ix->down());
                         dnxt = dynamic_cast<DataNode<Key, Value>*>(nxt->down());
                     }
+                    delete nxt;
                     lvl--;
                 }
                 dix->next(dynamic_cast<DataNode<Key, Value>*>(&dnxt->next()));
+                delete dnxt;
 
                 return ret_val;
             }

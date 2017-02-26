@@ -45,7 +45,10 @@ public:
         , pNext(nullptr) {
     }
 
-    virtual ~DataNode() {}
+    virtual ~DataNode() {
+        delete pKey;
+        delete pValue;
+    }
 
     /**
    * Return key assosiated with the given node
