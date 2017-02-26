@@ -23,8 +23,6 @@ TEST(SkipListTest, Empty) {
 TEST(SkipListTest, SimplePut) {
   SkipList<int, string, 8> sk;
 
-  sk.Put(11, "dynamic_cast is bullshit");
-  sk.Put(12, "const_cast is bullshit");
   const std::string *pOld = sk.Put(10, "test");
   ASSERT_EQ(nullptr, pOld);
 
@@ -51,6 +49,12 @@ TEST(SkipListTest, IterateOver) {
   sk.Put(1, "one");
   sk.Put(9, "nine");
   sk.Put(3, "three");
+
+  for (auto p = sk.cbegin(); p != sk.cend(); p++)
+    printf("%d -> %s\n", p.key(), p.value().c_str());
+
+  printf("--------------\n");
+  sk.Delete(6);
 
   for (auto p = sk.cbegin(); p != sk.cend(); p++)
     printf("%d -> %s\n", p.key(), p.value().c_str());
