@@ -138,8 +138,8 @@ public:
         pNext = next;
     };
 
-    virtual Node<Key, Value>* down() {
-        return pDown;
+    virtual IndexNode<Key, Value>* down() {
+        return dynamic_cast<IndexNode<Key,Value>*>(pDown);
     }
 
     virtual DataNode<Key, Value>* root() {

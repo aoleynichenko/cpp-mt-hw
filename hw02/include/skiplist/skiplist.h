@@ -27,7 +27,7 @@ public:
         pTail = new DataNode<Key, Value>(nullptr, nullptr);
         pHead->next(pTail);
 
-        Node<Key, Value>* prev = pHead;
+        Node<Key, Value>* prev = nullptr;//pHead;
         pTailIdx = new IndexNode<Key, Value>(pTail, pTail);
         for (int i = 0; i < MAXHEIGHT; i++) {
             aHeadIdx[i] = new IndexNode<Key, Value>(prev, pHead);
@@ -101,23 +101,9 @@ public:
    * @return value assosiated with given key or nullptr
    */
     virtual Value* Get(const Key& key) const {
-        int lvl = MAXHEIGHT - 1;
-
-        IndexNode<Key, Value>* ix = aHeadIdx[MAXHEIGHT - 1];
-        while (lvl >= 0) {
-            IndexNode<Key, Value>* nxt = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
-
-            if (nxt == pTailIdx || cmp_less(key, nxt->key())) {
-                lvl--;
-                ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
-            } else if (cmp_less(nxt->key(), key)) {
-                ix = nxt;
-            } else {
-                return &nxt->value();
-            }
-        }
-        return nullptr;
-    };
+        DataNode<Key,Value>* node = find(key);
+        return (node == nullptr) ? nullptr : &node->value();
+    }
 
     /**
    * Remove given key from the skpiplist and returns value
@@ -128,40 +114,40 @@ public:
    * @return value for the removed key or nullptr
    */
     virtual Value* Delete(const Key& key) {
-        int lvl = MAXHEIGHT - 1;
-
         IndexNode<Key, Value>* ix = aHeadIdx[MAXHEIGHT - 1];
-        while (lvl >= 0) {
+
+        while (ix != nullptr) {
             IndexNode<Key, Value>* nxt = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
 
             if (nxt == pTailIdx || cmp_less(key, nxt->key())) {
-                lvl--;
-                ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
+                ix = ix->down();
             } else if (cmp_less(nxt->key(), key)) {
                 ix = nxt;
             } else {
-                // remove
-                Value* ret_val = &nxt->value();
-                DataNode<Key, Value> *dix, *dnxt;
-                while (lvl >= 0) {
-                    IndexNode<Key,Value>* nxt2 = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
-                    IndexNode<Key,Value>* nxt_old = nxt;
-                    ix->next(nxt2);
+                // delete stack of IndexNode's and 1 DataNode object
+                Value* ret_val = &nxt->value(); // extract object to be returned
 
-                    if (lvl > 0) {
-                        ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
-                        nxt = dynamic_cast<IndexNode<Key, Value>*>(nxt->down());
-                    } else {
-                        dix = dynamic_cast<DataNode<Key, Value>*>(ix->down());
-                        dnxt = dynamic_cast<DataNode<Key, Value>*>(nxt->down());
-                    }
-                    delete nxt_old;
-                    lvl--;
+                DataNode<Key, Value>* data_curr;// = ix->root();
+                DataNode<Key, Value>* data_del = nxt->root(); // DataNode to be deleted
+                while (ix != nullptr) {
+                    IndexNode<Key,Value>* nxt2 = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
+
+                    IndexNode<Key,Value>* idx_del = nxt; // IndexNode to be deleted
+                    // remove IndexNode from linked list
+                    while (&ix->next() != nxt)
+                        ix = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
+                    ix->next(nxt2);
+                    data_curr = ix->root();
+                    // descent
+                    ix = ix->down();
+                    nxt = nxt->down();
+                    delete idx_del;
                 }
-                dix->next(dynamic_cast<DataNode<Key, Value>*>(&dnxt->next()));
+
+                data_curr->next(dynamic_cast<DataNode<Key, Value>*>(&data_del->next()));
                 // we should not delete value, because we return it!
-                delete &dnxt->key();
-                delete dnxt;
+                delete &data_del->key();
+                delete data_del;
 
                 return ret_val;
             }
@@ -189,22 +175,8 @@ public:
    * the given key
    */
     virtual Iterator<Key, Value> cfind(const Key& min) const {
-        int lvl = MAXHEIGHT - 1;
-
-        IndexNode<Key, Value>* ix = aHeadIdx[MAXHEIGHT - 1];
-        while (lvl >= 0) {
-            IndexNode<Key, Value>* nxt = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
-
-            if (nxt == pTailIdx || cmp_less(min, nxt->key())) {
-                lvl--;
-                ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
-            } else if (cmp_less(nxt->key(), min)) {
-                ix = nxt;
-            } else {
-                return Iterator<Key, Value>(nxt->root());
-            }
-        }
-        return Iterator<Key, Value>(pTail);
+        DataNode<Key,Value>* node = find(min);
+        return Iterator<Key, Value>((node == nullptr) ? pTail : node);
     };
 
     /**
@@ -218,6 +190,28 @@ private:
     // comparator
     Compare cmp_less;
 
+    /**
+     * Returns pointer to DataNode with this key
+     */
+    DataNode<Key,Value>* find(const Key& key) const {
+        int lvl = MAXHEIGHT - 1;
+
+        IndexNode<Key, Value>* ix = aHeadIdx[MAXHEIGHT - 1];
+        while (lvl >= 0) {
+            IndexNode<Key, Value>* nxt = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
+
+            if (nxt == pTailIdx || cmp_less(key, nxt->key())) {
+                lvl--;
+                ix = ix->down();
+            } else if (cmp_less(nxt->key(), key)) {
+                ix = nxt;
+            } else {
+                return nxt->root();
+            }
+        }
+        return nullptr;
+    };
+
     Value* insert_pair(const Key& key, const Value& value, bool substitute = true) const {
         int lvl = MAXHEIGHT - 1;
         IndexNode<Key, Value>* trace[MAXHEIGHT];
@@ -229,7 +223,7 @@ private:
             if (nxt == pTailIdx || cmp_less(key, nxt->key())) { // descent
                 trace[lvl] = ix;
                 lvl--;
-                ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
+                ix = ix->down();
             } else if (cmp_less(nxt->key(), key)) {
                 ix = nxt;
                 continue;
@@ -242,7 +236,10 @@ private:
                 }
             }
             if (lvl == -1) {
-                DataNode<Key, Value>* curr_data = dynamic_cast<DataNode<Key, Value>*>(trace[0]->down());
+                /*DataNode<Key, Value>* curr_data = dynamic_cast<DataNode<Key, Value>*>(trace[0]->down());
+                DataNode<Key, Value>* data = new DataNode<Key, Value>(new Key(key), new Value(value));
+                Node<Key, Value>* down = data;*/
+                DataNode<Key, Value>* curr_data = trace[0]->root();
                 DataNode<Key, Value>* data = new DataNode<Key, Value>(new Key(key), new Value(value));
                 Node<Key, Value>* down = data;
 

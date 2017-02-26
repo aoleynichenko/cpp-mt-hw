@@ -84,4 +84,11 @@ TEST(SkipListTest, Delete) {
   printf("pi = %g\n", *pi);
   delete pi;
   ASSERT_EQ(sk.cfind("pi"), sk.cend());
+
+  sk.Put("ln10",  2.30258);
+  sk.Put("sqrt2", 1.4142);
+
+  printf("----------\n");
+  for (auto p = sk.cbegin(); p != sk.cend(); p++)
+    printf("%s -> %g\n", p.key().c_str(), p.value());
 }
