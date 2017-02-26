@@ -11,3 +11,8 @@ skiplist_test: $(TEST_SRC) $(HDR)
 tests.done: skiplist_test
 	./skiplist_test
 	touch tests.done
+
+clean:
+	rm skiplist_test
+	rm tests.done
+

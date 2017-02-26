@@ -5,16 +5,14 @@
 #include <iostream>
 #include <functional>
 
+#include <ctime>
+#include <cstdlib>
+
 using namespace std;
 
-SkipList<int, string, 8> sk;
-
-TEST(SkipListTest, Compare) {
-    std::less<int> less;
-    cout << less(12, 3) << endl;
-}
-
 TEST(SkipListTest, Empty) {
+  srand(time(0));
+  SkipList<int, string, 8> sk;
   ASSERT_EQ(nullptr, sk.Get(100));
   ASSERT_EQ(sk.cend(), sk.cbegin())  << "Begin iterator fails";
   ASSERT_EQ(sk.cend(), sk.cfind(10)) << "Find iterator fails";
@@ -41,6 +39,20 @@ TEST(SkipListTest, SimplePut) {
   ASSERT_EQ(string("test"), *it)        << "Iterator value is correct";
 }
 
+TEST(SkipListTest, PutIfPresented) {
+  SkipList<int, string, 8> sk;
+  sk.Put(1, "Maine Coon");
+  sk.Put(2, "Siamese cat");
+  sk.Put(3, "Norwegian forest cat");
+  sk.Put(4, "Sphynx cat");
+  sk.Put(5, "Manul cat");
+
+  string* old = sk.Put(5, "Pallas cat");
+  ASSERT_NE(nullptr, old);
+  printf("%s\n", old->c_str());
+  delete old;
+}
+
 TEST(SkipListTest, IterateOver) {
   SkipList<int, string, 8> sk;
 
@@ -53,7 +65,7 @@ TEST(SkipListTest, IterateOver) {
   for (auto p = sk.cbegin(); p != sk.cend(); p++)
     printf("%d -> %s\n", p.key(), p.value().c_str());
 
-  printf("--------------\n");
+  printf("------------\n");
   auto f = sk.cfind(1);
 
   for (; f != sk.cend(); f++)
@@ -70,5 +82,6 @@ TEST(SkipListTest, Delete) {
   double* pi = sk.Delete("pi");
   ASSERT_NE(nullptr, pi);
   printf("pi = %g\n", *pi);
+  delete pi;
   ASSERT_EQ(sk.cfind("pi"), sk.cend());
 }

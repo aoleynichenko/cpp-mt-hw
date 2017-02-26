@@ -55,11 +55,14 @@ public:
         }
         delete pTailIdx;
 
-        for (Node<Key,Value>* p = pHead; p != pTail; ) {
+        for (Node<Key,Value>* p = &pHead->next(); p != pTail; ) {
             Node<Key,Value>* nxt = &p->next();
+            delete &p->key();
+            delete &p->value();
             delete p;
             p = nxt;
         }
+        delete pHead;
         delete pTail;
     }
 
@@ -141,8 +144,9 @@ public:
                 Value* ret_val = &nxt->value();
                 DataNode<Key, Value> *dix, *dnxt;
                 while (lvl >= 0) {
-                    IndexNode<Key,Value>* nx = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
-                    ix->next(nx);
+                    IndexNode<Key,Value>* nxt2 = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
+                    IndexNode<Key,Value>* nxt_old = nxt;
+                    ix->next(nxt2);
 
                     if (lvl > 0) {
                         ix = dynamic_cast<IndexNode<Key, Value>*>(ix->down());
@@ -151,10 +155,12 @@ public:
                         dix = dynamic_cast<DataNode<Key, Value>*>(ix->down());
                         dnxt = dynamic_cast<DataNode<Key, Value>*>(nxt->down());
                     }
-                    delete nxt;
+                    delete nxt_old;
                     lvl--;
                 }
                 dix->next(dynamic_cast<DataNode<Key, Value>*>(&dnxt->next()));
+                // we should not delete value, because we return it!
+                delete &dnxt->key();
                 delete dnxt;
 
                 return ret_val;

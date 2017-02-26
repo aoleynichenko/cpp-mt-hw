@@ -46,8 +46,6 @@ public:
     }
 
     virtual ~DataNode() {
-        delete pKey;
-        delete pValue;
     }
 
     /**
