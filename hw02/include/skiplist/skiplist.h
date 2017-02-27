@@ -134,7 +134,7 @@ public:
 
                     IndexNode<Key, Value>* idx_del = nxt; // IndexNode to be deleted
                     // remove IndexNode from linked list
-                    while (&ix->next() != nxt)
+                    while (&ix->next() != nxt) // move ix close to the IndexNode to be deleted
                         ix = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
                     ix->next(nxt2);
                     data_curr = ix->root();
@@ -227,7 +227,7 @@ private:
             } else if (cmp_less(nxt->key(), key)) {
                 ix = nxt;
                 continue;
-            } else { // (key == ix->key()) { // точное совпадение ключей -> заменяем Value
+            } else {  // key == ix->key()
                 if (substitute) { // usual put
                     Value* v = new Value(value);
                     return nxt->value(v);
@@ -236,9 +236,6 @@ private:
                 }
             }
             if (lvl == -1) {
-                /*DataNode<Key, Value>* curr_data = dynamic_cast<DataNode<Key, Value>*>(trace[0]->down());
-                DataNode<Key, Value>* data = new DataNode<Key, Value>(new Key(key), new Value(value));
-                Node<Key, Value>* down = data;*/
                 DataNode<Key, Value>* curr_data = trace[0]->root();
                 DataNode<Key, Value>* data = new DataNode<Key, Value>(new Key(key), new Value(value));
                 Node<Key, Value>* down = data;

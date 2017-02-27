@@ -2,7 +2,6 @@
 #include <string>
 #include <skiplist/skiplist.h>
 #include <cstdio>
-#include <iostream>
 #include <functional>
 
 #include <ctime>
