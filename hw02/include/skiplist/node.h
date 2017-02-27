@@ -139,11 +139,11 @@ public:
     };
 
     virtual IndexNode<Key, Value>* down() {
-        return dynamic_cast<IndexNode<Key,Value>*>(pDown);
+        return dynamic_cast<IndexNode<Key, Value>*>(pDown);
     }
 
     virtual DataNode<Key, Value>* root() {
-        return dynamic_cast<DataNode<Key,Value>*>(pRoot);
+        return dynamic_cast<DataNode<Key, Value>*>(pRoot);
     }
 };
 #endif // __NODE_H

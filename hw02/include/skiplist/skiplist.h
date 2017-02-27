@@ -27,7 +27,7 @@ public:
         pTail = new DataNode<Key, Value>(nullptr, nullptr);
         pHead->next(pTail);
 
-        Node<Key, Value>* prev = nullptr;//pHead;
+        Node<Key, Value>* prev = nullptr; //pHead;
         pTailIdx = new IndexNode<Key, Value>(pTail, pTail);
         for (int i = 0; i < MAXHEIGHT; i++) {
             aHeadIdx[i] = new IndexNode<Key, Value>(prev, pHead);
@@ -47,16 +47,16 @@ public:
     virtual ~SkipList() {
         // delete all index nodes
         for (int i = 0; i < MAXHEIGHT; i++) {
-            for (Node<Key,Value>* ix = aHeadIdx[i]; ix != pTailIdx; ) {
-                Node<Key,Value>* nxt = &ix->next();
+            for (Node<Key, Value>* ix = aHeadIdx[i]; ix != pTailIdx;) {
+                Node<Key, Value>* nxt = &ix->next();
                 delete ix;
                 ix = nxt;
             }
         }
         delete pTailIdx;
 
-        for (Node<Key,Value>* p = &pHead->next(); p != pTail; ) {
-            Node<Key,Value>* nxt = &p->next();
+        for (Node<Key, Value>* p = &pHead->next(); p != pTail;) {
+            Node<Key, Value>* nxt = &p->next();
             delete &p->key();
             delete &p->value();
             delete p;
@@ -101,7 +101,7 @@ public:
    * @return value assosiated with given key or nullptr
    */
     virtual Value* Get(const Key& key) const {
-        DataNode<Key,Value>* node = find(key);
+        DataNode<Key, Value>* node = find(key);
         return (node == nullptr) ? nullptr : &node->value();
     }
 
@@ -127,12 +127,12 @@ public:
                 // delete stack of IndexNode's and 1 DataNode object
                 Value* ret_val = &nxt->value(); // extract object to be returned
 
-                DataNode<Key, Value>* data_curr;// = ix->root();
+                DataNode<Key, Value>* data_curr; // = ix->root();
                 DataNode<Key, Value>* data_del = nxt->root(); // DataNode to be deleted
                 while (ix != nullptr) {
-                    IndexNode<Key,Value>* nxt2 = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
+                    IndexNode<Key, Value>* nxt2 = dynamic_cast<IndexNode<Key, Value>*>(&nxt->next());
 
-                    IndexNode<Key,Value>* idx_del = nxt; // IndexNode to be deleted
+                    IndexNode<Key, Value>* idx_del = nxt; // IndexNode to be deleted
                     // remove IndexNode from linked list
                     while (&ix->next() != nxt)
                         ix = dynamic_cast<IndexNode<Key, Value>*>(&ix->next());
@@ -175,7 +175,7 @@ public:
    * the given key
    */
     virtual Iterator<Key, Value> cfind(const Key& min) const {
-        DataNode<Key,Value>* node = find(min);
+        DataNode<Key, Value>* node = find(min);
         return Iterator<Key, Value>((node == nullptr) ? pTail : node);
     };
 
@@ -193,7 +193,7 @@ private:
     /**
      * Returns pointer to DataNode with this key
      */
-    DataNode<Key,Value>* find(const Key& key) const {
+    DataNode<Key, Value>* find(const Key& key) const {
         int lvl = MAXHEIGHT - 1;
 
         IndexNode<Key, Value>* ix = aHeadIdx[MAXHEIGHT - 1];
