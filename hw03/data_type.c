@@ -1,6 +1,6 @@
 #include "data_type.h"
 
-int compare(const data_type *a, const data_type *b)
+int compare(const void *a, const void *b)
 {
-    return *a < *b;
+    return *(data_type*)a < *(data_type*)b;
 }

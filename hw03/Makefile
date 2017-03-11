@@ -3,16 +3,18 @@
 # External sorting
 
 CC=gcc
+CXX=g++
 CCFLAGS=-g
+CXXFLAGS=--std=c++11
 
 all: genfile extsort intsort
 
 # External sorting
 extsort: extsort.o data_type.o
-	$(CC) -o extsort extsort.o data_type.o -lm
+	$(CXX) -o extsort extsort.o data_type.o -lm
 
-extsort.o: extsort.c
-	$(CC) $(CCFLAGS) -c extsort.c
+extsort.o: extsort.cpp
+	$(CXX) $(CXXFLAGS) -c extsort.cpp
 
 # Internal sorting
 intsort: intsort.o data_type.o
