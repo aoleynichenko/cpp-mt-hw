@@ -29,4 +29,4 @@ genfile.o: genfile.c
 	$(CC) $(CCFLAGS) -c genfile.c
 
 clean:
-	rm *.o $(TARGET_GEN) $(TARGET_SORT)
+	rm *.o genfile extsort intsort
