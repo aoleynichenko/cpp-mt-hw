@@ -16,14 +16,15 @@ void usage()
 
 void error(char *message)
 {
-    printf("Error: %s\n", message);
+    fprintf(stderr, "Error: %s\n", message);
 }
 
 void fill_random(data_type *buf, size_t n)
 {
     size_t i;
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
         buf[i] = rand();
+    }
 }
 
 void flush_numbers(data_type *buf, size_t n, char *file_name)
@@ -104,7 +105,8 @@ int main(int argc, char **argv)
     }
 
     // generate random numbers
-    if ((numbuf = (data_type *) malloc(bufsize * sizeof(data_type))) == NULL) {
+    numbuf = (data_type *) malloc(bufsize * sizeof(data_type));
+    if (numbuf == NULL) {
         error("unable to allocate buffer");
         return 2;
     }
@@ -115,6 +117,8 @@ int main(int argc, char **argv)
     // output of our extsort program wil be compared to the 'sorted' file
     qsort(numbuf, bufsize, sizeof(data_type), compare);
     flush_numbers(numbuf, bufsize, sorted_name);
+
+    free(numbuf);
 
     return 0;
 }

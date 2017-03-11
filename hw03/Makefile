@@ -3,33 +3,30 @@
 # External sorting
 
 CC=gcc
-CCFLAGS=
+CCFLAGS=-g
 
-TARGET_SORT=extsort
-SRC_SORT=extsort.c data_type.c
-OBJ_SORT=extsort.o data_type.o
-
-TARGET_GEN=genfile
-SRC_GEN=genfile.c data_type.c
-OBJ_GEN=genfile.o data_type.o
-
-
-all: $(TARGET_SORT) $(TARGET_GEN)
+all: genfile extsort intsort
 
 # External sorting
-$(TARGET_SORT): $(OBJ_SORT)
-	$(CC) -o $(TARGET_SORT) $(OBJ_SORT)
+extsort: extsort.o data_type.o
+	$(CC) -o extsort extsort.o data_type.o
 
-$(OBJ_SORT):
-	$(CC) $(CCFLAGS) -c $(SRC_SORT)
+extsort.o: extsort.c
+	$(CC) $(CCFLAGS) -c extsort.c
+
+# Internal sorting
+intsort: intsort.o data_type.o
+	$(CC) -o intsort intsort.o data_type.o
+
+intsort.o: intsort.c
+	$(CC) $(CCFLAGS) -c intsort.c
 
 # Test generator
-$(TARGET_GEN): $(OBJ_GEN)
-	$(CC) -o $(TARGET_GEN) $(OBJ_GEN)
+genfile: genfile.o data_type.o
+	$(CC) -o genfile genfile.o data_type.o
 
-$(OBJ_GEN):
-	$(CC) $(CCFLAGS) -c $(SRC_GEN)
+genfile.o: genfile.c
+	$(CC) $(CCFLAGS) -c genfile.c
 
 clean:
 	rm *.o $(TARGET_GEN) $(TARGET_SORT)
-
