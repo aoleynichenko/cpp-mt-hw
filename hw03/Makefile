@@ -9,7 +9,7 @@ all: genfile extsort intsort
 
 # External sorting
 extsort: extsort.o data_type.o
-	$(CC) -o extsort extsort.o data_type.o
+	$(CC) -o extsort extsort.o data_type.o -lm
 
 extsort.o: extsort.c
 	$(CC) $(CCFLAGS) -c extsort.c

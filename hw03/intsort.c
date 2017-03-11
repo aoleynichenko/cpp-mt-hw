@@ -13,7 +13,7 @@
 void usage()
 {
     printf("Usage: intsort <inp-file> <out-file>\n");
-    printf("  <inp-file> -- file with unsorted data\n");
+    printf(" <inp-file>  file with unsorted data\n");
 }
 
 off_t fsize(const char *filename) {
