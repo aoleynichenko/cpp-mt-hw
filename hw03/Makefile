@@ -34,8 +34,8 @@ clean:
 	rm *.o genfile extsort intsort
 
 test:
-	./genfile --sz 9
-	./extsort unsorted extsorted 2
+	./genfile --sz 50
+	./extsort unsorted extsorted 10
 	diff sorted extsorted
 	rm sorted unsorted extsorted
 

@@ -8,6 +8,7 @@
 #include "data_type.h"
 
 #define MAX_MB 1024  // 1 GB (it is just a test)
+#define MAX_ELEMS (MAX_MB * 1024 * 1024 / sizeof(data_type))
 
 void usage()
 {
@@ -43,8 +44,9 @@ int main(int argc, char **argv)
     char *sorted_name = default_sorted_name;
     char *unsorted_name = default_unsorted_name;
     char **argp;
-    size_t bufsize = 0;
+    size_t sz = 0;
     data_type *numbuf = NULL;
+    int nosorted = 0;
 
     // parse command line arguments
     if (argc == 1) {
@@ -63,7 +65,7 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 // megabytes -> n_elems
-                bufsize = mb * 1024 * 1024 / sizeof(data_type);
+                sz = (int64_t) mb * 1024 * 1024 / sizeof(data_type);
             }
             else {
                 error("wrong size");
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
         }
         else if (strcmp(*argp, "--unsorted") == 0) {
             if (argc >= 2) {
-                sorted_name = *(argp + 1);
+                unsorted_name = *(argp + 1);
             }
             else {
                 error("expected name of unsorted file");
@@ -94,31 +96,58 @@ int main(int argc, char **argv)
             argp += 2;
             argc -= 2;
         }
+        else if (strcmp(*argp, "--nosorted") == 0) {
+            nosorted = 1;
+            argp++;
+            argc--;
+        }
         else {
             error("unknown option");
             return 1;
         }
     }
-    if (bufsize == 0) {
+    if (sz == 0) {
         error("the size should be defined (option --sz)");
         return 1;
     }
-
-    // generate random numbers
-    numbuf = (data_type *) malloc(bufsize * sizeof(data_type));
-    if (numbuf == NULL) {
-        error("unable to allocate buffer");
-        return 2;
+    if (sz > MAX_ELEMS && !nosorted) {
+        fprintf(stderr, "Error: required file is to lagre for sorting.\n");
+        fprintf(stderr, "(%u mb, limit is %u mb). ", sz*sizeof(data_type)/1024/1024, MAX_MB);
+        fprintf(stderr, "Use option --nosorted.\n");
+        fprintf(stderr, "Note: no sorted file for testing will be generated.\n");
+        return 1;
     }
-    fill_random(numbuf, bufsize);
-    flush_numbers(numbuf, bufsize, unsorted_name);
 
-    // now we prepare file with sorted numbers
-    // output of our extsort program wil be compared to the 'sorted' file
-    qsort(numbuf, bufsize, sizeof(data_type), data_less);
-    flush_numbers(numbuf, bufsize, sorted_name);
+    if (!nosorted) {
+        numbuf = (data_type *) malloc(sz * sizeof(data_type));
+        if (numbuf == NULL) {
+            error("unable to allocate buffer");
+            return 2;
+        }
+        fill_random(numbuf, sz);
+        flush_numbers(numbuf, sz, unsorted_name);
 
-    free(numbuf);
+        // now we prepare file with sorted numbers
+        // output of our extsort program wil be compared to the 'sorted' file
+        qsort(numbuf, sz, sizeof(data_type), data_less);
+        flush_numbers(numbuf, sz, sorted_name);
+
+        free(numbuf);
+    }
+    else {  // generate only unsorted file
+        int out = open(unsorted_name, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        size_t bufsize = MAX_MB * 1024 * 1024 / sizeof(data_type);
+        size_t n = sz; // n(elements) to write on disk
+        numbuf = (data_type *) malloc(bufsize * sizeof(data_type));
+        while (n > 0) {
+            size_t nelem = (n > bufsize) ? bufsize : n;
+            n -= nelem;
+            fill_random(numbuf, nelem);
+            write(out, numbuf, nelem * sizeof(data_type));
+        }
+        close(out);
+        free(numbuf);
+    }
 
     return 0;
 }

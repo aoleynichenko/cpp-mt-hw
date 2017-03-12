@@ -1,7 +1,10 @@
 // Homework 3
-// External sorting code
+// External sorting code (k-way 1-pass external merge sort)
 // Alexander Oleynichenko, 2017
 // mailto: ao2310@yandex.ru
+//
+// Algorithm details:
+// https://en.wikipedia.org/wiki/External_sorting#External_merge_sort
 
 #include <fcntl.h>
 #include <math.h>
@@ -9,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -52,18 +56,18 @@ public:
     }
 
     // returns the next value to be read
-    data_type curr_data() {
+    data_type* curr_data() {
         if (empty()) {
             return 0;
         }
         if (pos == size) {
             load_next();
         }
-        return buf[pos];
+        return &buf[pos];
     }
 
     // reads the next value from file (using buffer) and returns it
-    data_type read_data() {
+    data_type* read_data() {
         if (empty()) {
             return 0;
         }
@@ -71,7 +75,7 @@ public:
             load_next();
         }
         pos++;
-        return buf[pos-1];
+        return &buf[pos-1];
     }
 
     // loads next large of sorted data from the tmp file
@@ -115,8 +119,8 @@ public:
         close(fd);
     }
 
-    void put(data_type data) {
-        buf[pos] = data;
+    void put(data_type* data) {
+        buf[pos] = *data;
         pos++;
         if (pos == size) {
             write(fd, buf, size * sizeof(data_type));
@@ -152,11 +156,8 @@ void usage() {
 int main(int argc, char **argv)
 {
     int mb;    // n(megabytes of RAM) to be used
-    int ind;   // input file descriptor
-    size_t n;  // n(entries)
-    size_t k;  // K-way sorting
     char *inp_name, *out_name;
-    data_type *numbuf;
+    clock_t t0, t1, t2;
 
     if (argc != 4) {
         usage();
@@ -171,15 +172,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    n = file_size(inp_name);
+    size_t n = file_size(inp_name);  // n(entries)
     if (n == -1) {
         fprintf(stderr, "Error: input file '%s' not found\n", inp_name);
         return 1;
     }
 
     // alloc buffer for numbers from input file
-    int memsize = mb * 1024 * 1024 / sizeof(data_type);
-    numbuf = new data_type[memsize];
+    size_t memsize = (size_t) mb * 1024 * 1024 / sizeof(data_type);
+    data_type* numbuf = new data_type[memsize];
     if (numbuf == NULL) {
         fprintf(stderr, "Error: unable to allocate %d bytes\n", n * sizeof(data_type));
         return 1;
@@ -187,23 +188,25 @@ int main(int argc, char **argv)
 
     // split large unsorted file into k sorted files
     // here I use qsort() for simplicity
-    int totalsize = n;
-    k = (size_t) ceil((double) n / memsize);
-    int way_size = memsize / (k+1);
+    size_t totalsize = n;
+    size_t k = (size_t) ceil((double) n / memsize);   // K-way sorting
+    size_t way_size = memsize / (k+1);
+    t0 = clock();
     printf("%d-way sorting\n", k);
 
     vector<InputWay*> ways;
-    ind = open(inp_name, O_RDONLY);
-    for (int i = 0; i < k; i++) {
-        int nelem = (totalsize < memsize) ? totalsize : memsize;
+    int ind = open(inp_name, O_RDONLY);  // read large input file chunk by chunk
+    for (size_t i = 0; i < k; i++) {
+        size_t nelem = (totalsize < memsize) ? totalsize : memsize;
         totalsize -= memsize;
 
         read(ind, numbuf, nelem*sizeof(data_type));
         qsort(numbuf, nelem, sizeof(data_type), data_less);
         ways.push_back(new InputWay(numbuf, nelem, way_size));
 
-        printf("%d/%d %d bytes\n", i, k, nelem*sizeof(data_type));
+        printf("%d/%d %llu bytes\n", i+1, k, nelem*sizeof(data_type));
     }
+    t1 = clock();
     delete[] numbuf;
     close(ind);
 
@@ -211,11 +214,13 @@ int main(int argc, char **argv)
     OutputWay out(out_name, way_size);
     while (true) {
         // find max element
-        data_type max = DATA_MIN_VALUE;
-        InputWay *max_way = nullptr;
-        for (int i = 0; i < k; i++) {
-            data_type xi = ways[i]->curr_data();
-            if (!ways[i]->empty() && data_less(&max, &xi)) {
+        data_type start_value = DATA_MIN_VALUE;
+        data_type* max = &start_value;
+        InputWay* max_way = nullptr;
+
+        for (size_t i = 0; i < k; i++) {
+            data_type* xi = ways[i]->curr_data();
+            if (!ways[i]->empty() && data_less(max, xi)) {
                 max = xi;
                 max_way = ways[i];
             }
@@ -223,11 +228,18 @@ int main(int argc, char **argv)
         if (max_way == nullptr) {  // finished
             break;
         }
-        data_type x = max_way->read_data();
 
-        out.put(x);
+        out.put(max_way->read_data());
     }
+    t2 = clock();
 
+    // final cleanup
+    // close and remove all temporary files, free buffers
     for (size_t i = 0; i < k; i++)
         delete ways[i];
+
+    // statistics
+    printf("----------------------------\n");
+    printf("Time for splitting and qsort  %.2f sec\n", (double)(t1 - t0)/CLOCKS_PER_SEC);
+    printf("Time for %d-way merge         %.2f sec\n", k, (double)(t2 - t1)/CLOCKS_PER_SEC);
 }
