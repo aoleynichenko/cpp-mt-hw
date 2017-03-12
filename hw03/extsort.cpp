@@ -3,15 +3,16 @@
 // Alexander Oleynichenko, 2017
 // mailto: ao2310@yandex.ru
 
-#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
+
+using std::vector;
 
 #include "data_type.h"
 
@@ -24,8 +25,8 @@ private:
     size_t size;
     size_t remain;
 public:
-    InputWay(data_type* data, size_t nelem, size_t way_size)
-      :   remain(nelem), buf(nullptr), size(way_size) {
+    InputWay(data_type* data, size_t nelem, size_t buf_size)
+      :   remain(nelem), buf(nullptr), size(buf_size) {
         pos = size;
         strcpy(filename, "/tmp/extsortXXXXXX");
         fd = mkstemp(filename);  // O_RDWR
@@ -45,10 +46,12 @@ public:
 
     InputWay& operator=(const InputWay& other) = delete;
 
+    // returns true of all data was read from the disk
     bool empty() {
         return (pos == size) && (remain == 0);
     }
 
+    // returns the next value to be read
     data_type curr_data() {
         if (empty()) {
             return 0;
@@ -59,6 +62,7 @@ public:
         return buf[pos];
     }
 
+    // reads the next value from file (using buffer) and returns it
     data_type read_data() {
         if (empty()) {
             return 0;
@@ -70,6 +74,7 @@ public:
         return buf[pos-1];
     }
 
+    // loads next large of sorted data from the tmp file
     void load_next() {
         if (buf == nullptr) {
             buf = new data_type[size];
@@ -79,17 +84,46 @@ public:
         }
         size = (remain > size) ? size : remain;
         remain -= size;
-        size_t read_b = read(fd, buf, size * sizeof(data_type));
+        read(fd, buf, size * sizeof(data_type));
         pos = 0;
     }
 };
 
-void usage() {
-    printf("Usage: extsort <inp-file> <out-file> <mb>\n");
-    printf(" <inp-file>  path to file with unsorted data\n");
-    printf(" <out-file>  path to file to which sorted data will be written\n");
-    printf(" <mb>        size of memory to be used for sorting (megabytes)\n");
-}
+class OutputWay {
+private:
+    int fd;
+    data_type* buf;
+    size_t pos;
+    size_t size;
+public:
+    OutputWay(char* filename, size_t buf_size)
+      : pos(0), size(buf_size)
+    {
+        buf = new data_type[buf_size];
+        fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    }
+
+    OutputWay(const OutputWay&) = delete;
+
+    OutputWay& operator=(const OutputWay&) = delete;
+
+    ~OutputWay() {
+        // flush the remainder in the buffer
+        write(fd, buf, pos * sizeof(data_type));
+
+        delete[] buf;
+        close(fd);
+    }
+
+    void put(data_type data) {
+        buf[pos] = data;
+        pos++;
+        if (pos == size) {
+            write(fd, buf, size * sizeof(data_type));
+            pos = 0;
+        }
+    }
+};
 
 // returns number of data_type entries in file
 size_t file_size(const char *filename) {
@@ -108,8 +142,12 @@ int str_to_positive(char *s) {
         return -1;
 }
 
-#include <vector>
-using std::vector;
+void usage() {
+    printf("Usage: extsort <inp-file> <out-file> <mb>\n");
+    printf(" <inp-file>  path to file with unsorted data\n");
+    printf(" <out-file>  path to file to which sorted data will be written\n");
+    printf(" <mb>        size of memory to be used for sorting (megabytes)\n");
+}
 
 int main(int argc, char **argv)
 {
@@ -146,7 +184,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "Error: unable to allocate %d bytes\n", n * sizeof(data_type));
         return 1;
     }
-    ind = open(inp_name, O_RDONLY);
 
     // split large unsorted file into k sorted files
     // here I use qsort() for simplicity
@@ -154,37 +191,31 @@ int main(int argc, char **argv)
     k = (size_t) ceil((double) n / memsize);
     int way_size = memsize / (k+1);
     printf("%d-way sorting\n", k);
-    //InputWay *ways = new InputWay[k];
+
     vector<InputWay*> ways;
-
+    ind = open(inp_name, O_RDONLY);
     for (int i = 0; i < k; i++) {
-        // надо посчитать, сколько байт отрезать в каждый путь
         int nelem = (totalsize < memsize) ? totalsize : memsize;
-        printf("%d/%d %d bytes\n", i, k, nelem*sizeof(data_type));
-        size_t rd = read(ind, numbuf, nelem*sizeof(data_type));  // use return value or not?
+        totalsize -= memsize;
 
-        qsort(numbuf, nelem, sizeof(data_type), compare);
-
+        read(ind, numbuf, nelem*sizeof(data_type));
+        qsort(numbuf, nelem, sizeof(data_type), data_less);
         ways.push_back(new InputWay(numbuf, nelem, way_size));
 
-        totalsize -= memsize;
+        printf("%d/%d %d bytes\n", i, k, nelem*sizeof(data_type));
     }
     delete[] numbuf;
     close(ind);
 
-    int outd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0777);
-    //printf("outd = %d\n", outd);
-    size_t j = 0;
-    data_type* outbuf = new data_type[way_size];
-    //printf("Start loop\n");
+    // merge sorted files
+    OutputWay out(out_name, way_size);
     while (true) {
         // find max element
-        data_type max = 0;
+        data_type max = DATA_MIN_VALUE;
         InputWay *max_way = nullptr;
         for (int i = 0; i < k; i++) {
             data_type xi = ways[i]->curr_data();
-            //printf("xi = %u\n", xi);
-            if (!ways[i]->empty() && (xi >= max)) {
+            if (!ways[i]->empty() && data_less(&max, &xi)) {
                 max = xi;
                 max_way = ways[i];
             }
@@ -193,16 +224,10 @@ int main(int argc, char **argv)
             break;
         }
         data_type x = max_way->read_data();
-        //printf("max = %u\n", x);
-        outbuf[j] = x;
-        j++;
-        if (j == way_size) {
-            write(outd, outbuf, way_size*sizeof(data_type));
-            j = 0;
-        }
-    }
-    write(outd, outbuf, j*sizeof(data_type));
-    delete[] outbuf;
 
-    close(outd);
+        out.put(x);
+    }
+
+    for (size_t i = 0; i < k; i++)
+        delete ways[i];
 }

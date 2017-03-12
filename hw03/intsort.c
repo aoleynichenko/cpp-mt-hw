@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     close(ind);
 
     // sort number in buffer
-    qsort(buf, bufsize, sizeof(data_type), compare);
+    qsort(buf, bufsize, sizeof(data_type), data_less);
 
     // write results to the output file
     outd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0644);

@@ -11,7 +11,7 @@ typedef uint32_t data_type;
 extern "C" {
 #endif  // C++ defined
 
-int compare(const void *, const void *);
+int data_less(const void *, const void *);
 
 #ifdef __cplusplus
 }

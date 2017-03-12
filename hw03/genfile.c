@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
     // now we prepare file with sorted numbers
     // output of our extsort program wil be compared to the 'sorted' file
-    qsort(numbuf, bufsize, sizeof(data_type), compare);
+    qsort(numbuf, bufsize, sizeof(data_type), data_less);
     flush_numbers(numbuf, bufsize, sorted_name);
 
     free(numbuf);

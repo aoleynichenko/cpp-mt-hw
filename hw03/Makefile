@@ -4,10 +4,10 @@
 
 CC=gcc
 CXX=g++
-CCFLAGS=-g
+CCFLAGS=
 CXXFLAGS=--std=c++11
 
-all: genfile extsort intsort firstn
+all: genfile extsort intsort
 
 # External sorting
 extsort: extsort.o data_type.o
@@ -30,16 +30,12 @@ genfile: genfile.o data_type.o
 genfile.o: genfile.c
 	$(CC) $(CCFLAGS) -c genfile.c
 
-firstn: firstn.o
-	$(CC) $(CCFLAGS) -o firstn firstn.o
-
-firstn.o: firstn.c
-	$(CC) $(CCFLAGS) -c firstn.c
-
 clean:
-	rm *.o genfile extsort intsort firstn
+	rm *.o genfile extsort intsort
 
 test:
 	./genfile --sz 9
 	./extsort unsorted extsorted 2
 	diff sorted extsorted
+	rm sorted unsorted extsorted
+
