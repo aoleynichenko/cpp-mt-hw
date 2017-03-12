@@ -38,3 +38,8 @@ firstn.o: firstn.c
 
 clean:
 	rm *.o genfile extsort intsort firstn
+
+test:
+	./genfile --sz 9
+	./extsort unsorted extsorted 2
+	diff sorted extsorted

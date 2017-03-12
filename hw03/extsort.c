@@ -15,74 +15,32 @@
 
 #include "data_type.h"
 
-class InputWay {  // "sorting way"
-private:
+struct inp_way {  // "sorting way"
     int fd;
     char filename[32];
     data_type* buf;
     size_t pos;
     size_t size;
     size_t remain;
-public:
-    InputWay(data_type* data, size_t nelem, size_t way_size)
-      :   remain(nelem), buf(nullptr), size(way_size) {
-        pos = size;
-        strcpy(filename, "/tmp/extsortXXXXXX");
-        fd = mkstemp(filename);  // O_RDWR
-        write(fd, data, nelem * sizeof(data_type));
-        lseek(fd, 0, SEEK_SET);   // we start reading from the beginning
-    }
-
-    ~InputWay() {
-        if (buf != nullptr) {
-            delete[] buf;
-        }
-        close(fd);
-        unlink(filename);
-    }
-
-    InputWay(const InputWay& other) = delete;
-
-    InputWay& operator=(const InputWay& other) = delete;
-
-    bool empty() {
-        return (pos == size) && (remain == 0);
-    }
-
-    data_type curr_data() {
-        if (empty()) {
-            return 0;
-        }
-        if (pos == size) {
-            load_next();
-        }
-        return buf[pos];
-    }
-
-    data_type read_data() {
-        if (empty()) {
-            return 0;
-        }
-        if (pos == size) {
-            load_next();
-        }
-        pos++;
-        return buf[pos-1];
-    }
-
-    void load_next() {
-        if (buf == nullptr) {
-            buf = new data_type[size];
-        }
-        if (remain == 0) {  // nothing to read
-            return;
-        }
-        size = (remain > size) ? size : remain;
-        remain -= size;
-        size_t read_b = read(fd, buf, size * sizeof(data_type));
-        pos = 0;
-    }
 };
+
+struct inp_way *init_input_way(struct inp_way *w, size_t nelem, size_t way_size)
+{
+    strcpy(w->filename, "/tmp/extsortXXXXXX");
+    w->fd = mkstemp(w->filename);
+    w->buf = NULL;   // it will be initialized later
+    w->pos = 0;
+    w->size = way_size;
+    w->remain = nelem;
+    return w;
+}
+
+size_t write_to_way(struct inp_way *w, data_type *buf, size_t n_data)
+{
+    size_t nw = write(w->fd, buf, n_data * sizeof(data_type));
+    lseek(w->fd, 0, SEEK_SET);   // fd is O_RDWR, go to the beginning
+    return nw / sizeof(data_type);
+}
 
 void usage() {
     printf("Usage: extsort <inp-file> <out-file> <mb>\n");
@@ -108,14 +66,11 @@ int str_to_positive(char *s) {
         return -1;
 }
 
-#include <vector>
-using std::vector;
-
 int main(int argc, char **argv)
 {
     int mb;    // n(megabytes of RAM) to be used
     int ind;   // input file descriptor
-    size_t n;  // n(entries)
+    size_t n;  // n(entries) in the large file to be sorted
     size_t k;  // K-way sorting
     char *inp_name, *out_name;
     data_type *numbuf;
@@ -141,12 +96,11 @@ int main(int argc, char **argv)
 
     // alloc buffer for numbers from input file
     int memsize = mb * 1024 * 1024 / sizeof(data_type);
-    numbuf = new data_type[memsize];
+    numbuf = (data_type *) malloc(memsize * sizeof(data_type));
     if (numbuf == NULL) {
         fprintf(stderr, "Error: unable to allocate %d bytes\n", n * sizeof(data_type));
         return 1;
     }
-    ind = open(inp_name, O_RDONLY);
 
     // split large unsorted file into k sorted files
     // here I use qsort() for simplicity
@@ -154,25 +108,24 @@ int main(int argc, char **argv)
     k = (size_t) ceil((double) n / memsize);
     int way_size = memsize / (k+1);
     printf("%d-way sorting\n", k);
-    //InputWay *ways = new InputWay[k];
-    vector<InputWay*> ways;
 
-    for (int i = 0; i < k; i++) {
+    ind = open(inp_name, O_RDONLY);
+    struct inp_way *ways = (struct inp_way *) malloc (k * sizeof(struct inp_way));
+
+    for (size_t i = 0; i < k; i++) {
         // надо посчитать, сколько байт отрезать в каждый путь
         int nelem = (totalsize < memsize) ? totalsize : memsize;
-        printf("%d/%d %d bytes\n", i, k, nelem*sizeof(data_type));
-        size_t rd = read(ind, numbuf, nelem*sizeof(data_type));  // use return value or not?
-
+        printf("%d/%d %d bytes\n", i+1, k, nelem * sizeof(data_type));
+        size_t rd = read(ind, numbuf, nelem * sizeof(data_type));  // use return value or not?
         qsort(numbuf, nelem, sizeof(data_type), compare);
-
-        ways.push_back(new InputWay(numbuf, nelem, way_size));
-
+        // write sorted block to file
+        init_input_way(ways + i, nelem, way_size);
+        write_to_way(ways + i, numbuf, nelem);
         totalsize -= memsize;
     }
-    delete[] numbuf;
-    close(ind);
+    close(inp);
 
-    int outd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0777);
+    int outd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     //printf("outd = %d\n", outd);
     size_t j = 0;
     data_type* outbuf = new data_type[way_size];
@@ -182,11 +135,11 @@ int main(int argc, char **argv)
         data_type max = 0;
         InputWay *max_way = nullptr;
         for (int i = 0; i < k; i++) {
-            data_type xi = ways[i]->curr_data();
+            data_type xi = ways[i].curr_data();
             //printf("xi = %u\n", xi);
-            if (!ways[i]->empty() && (xi >= max)) {
+            if (!ways[i].empty() && (xi >= max)) {
                 max = xi;
-                max_way = ways[i];
+                max_way = ways + i;
             }
         }
         if (max_way == nullptr) {  // finished
@@ -205,4 +158,6 @@ int main(int argc, char **argv)
     delete[] outbuf;
 
     close(outd);
+    close(ind);
+    delete[] ways;
 }

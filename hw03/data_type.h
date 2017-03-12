@@ -5,6 +5,8 @@
 
 typedef uint32_t data_type;
 
+#define DATA_MIN_VALUE 0
+
 #ifdef __cplusplus
 extern "C" {
 #endif  // C++ defined

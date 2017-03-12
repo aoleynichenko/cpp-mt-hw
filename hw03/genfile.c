@@ -63,7 +63,7 @@ int main(int argc, char **argv)
                     return 1;
                 }
                 // megabytes -> n_elems
-                bufsize = mb;// * 1024 * 1024 / sizeof(data_type);
+                bufsize = mb * 1024 * 1024 / sizeof(data_type);
             }
             else {
                 error("wrong size");
