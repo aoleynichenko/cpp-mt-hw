@@ -3,6 +3,7 @@
 // Alexander Oleynichenko, 2017
 // mailto: ao2310@yandex.ru
 
+#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdint.h>
@@ -14,17 +15,105 @@
 
 #include "data_type.h"
 
-struct Way {  // "sorting way"
+struct InputWay {  // "sorting way"
     int fd;
     char filename[16];
-    data_type *buf;
+    data_type* buf;
     size_t pos;
     size_t size;
     size_t remain;
+
+    InputWay() {  // dummy for new
+    }
+
+    InputWay(data_type* data, size_t nelem, size_t way_size)
+      :   remain(nelem), buf(nullptr), size(way_size) {
+        pos = size;
+        strcpy(filename, "/tmp/extsortXXXXXX");
+        strncpy(filename, tmpnam(NULL), 16);
+        fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+        //fd = mkstemp(filename);  // O_RDWR
+        //printf("fd = %d\n", fd);
+        // flush all data of this way to file
+        write(fd, data, nelem * sizeof(data_type));
+        close(fd);
+        /*fd = open(filename, O_RDONLY);
+        data_type dt[100];
+        for (int i = 0; i < nelem; i++) {
+          read(fd, dt, 4);
+          printf(">> %u\n", dt[0]);
+        }
+        printf("fd = %d\n", fd);*/
+        //lseek(fd, 0, SEEK_SET);   // we start reading from the beginning
+    }
+
+    ~InputWay() {
+        if (buf != nullptr) {
+            delete[] buf;
+        }
+        //close(fd);
+        unlink(filename);
+    }
+
+    bool empty() {
+        return (pos == size) && (remain == 0);
+    }
+
+    data_type curr_data() {
+        if (empty()) {
+            //printf("empty\n");
+            //print();
+            return 0;
+        }
+        if (pos == size) {
+            load_next();
+        }
+        return buf[pos];
+    }
+
+    data_type read_data() {
+        if (empty()) {
+            printf("is empty\n");
+            return 0;
+        }
+        if (pos == size) {
+            load_next();
+        }
+        pos++;
+        return buf[pos-1];
+    }
+
+    void load_next() {
+        if (buf == nullptr) {
+            buf = new data_type[size];
+        }
+        if (remain == 0) {  // nothing to read
+            printf("nothing to read\n");
+            return;
+        }
+        size = (remain > size) ? size : remain;
+        remain -= size;
+        printf("%d %s load next %d elements\n", this->fd, filename, size);
+        printf("remain = %u\n", remain);
+        fd = open(filename, O_RDONLY);
+        size_t read_b = read(fd, buf, size * sizeof(data_type));
+        printf("read %d bytes\n", read_b);
+        if (read_b == -1)
+          printf("error: %s\n", strerror(errno));
+        printf("read value = %u\n", buf[0]);
+        close(fd);
+        pos = 0;
+    }
+
+    void print() {
+        printf("filename = %s\n", filename);
+        printf("pos = %u\n", pos);
+        printf("size = %u\n", size);
+        printf("remain = %u\n\n", remain);
+    }
 };
 
-void usage()
-{
+void usage() {
     printf("Usage: extsort <inp-file> <out-file> <mb>\n");
     printf(" <inp-file>  path to file with unsorted data\n");
     printf(" <out-file>  path to file to which sorted data will be written\n");
@@ -41,26 +130,12 @@ size_t file_size(const char *filename) {
     return -1;
 }
 
-int str_to_positive(char *s)
-{
+int str_to_positive(char *s) {
     char *end;
     int n = strtol(s, &end, 10);
     if (n <= 0)
         return -1;
 }
-
-Way *split(data_type *numbuf, size_t k) {}
-
-void print_way_info(Way *w)
-{
-    printf("w->filename = %s\n", w->filename);
-    printf("w->pos = %d\n", w->pos);
-    printf("w->size = %d\n", w->size);
-    printf("w->remain = %d\n\n", w->remain);
-}
-
-Way *find_next(Way *ways, size_t k);
-data_type read_next_data(Way *source);
 
 int main(int argc, char **argv)
 {
@@ -91,7 +166,8 @@ int main(int argc, char **argv)
     }
 
     // alloc buffer for numbers from input file
-    numbuf = (data_type *) malloc(n * sizeof(data_type));
+    int memsize = mb;// * 1024 * 1024 / sizeof(data_type);
+    numbuf = new data_type[memsize];
     if (numbuf == NULL) {
         fprintf(stderr, "Error: unable to allocate %d bytes\n", n * sizeof(data_type));
         return 1;
@@ -101,88 +177,61 @@ int main(int argc, char **argv)
     // split large unsorted file into k sorted files
     // here I use qsort() for simplicity
     int totalsize = n;
-    int memsize = mb * 1024 * 1024 / sizeof(data_type);
     k = (size_t) ceil((double) n / memsize);
+    int way_size = memsize / (k+1);
+    printf("MEM SIZE = %d\n", memsize);
+    printf("WAY SIZE = %d\n", way_size);
     printf("%d-way sorting\n", k);
-    Way *ways = new Way[k];
+    InputWay *ways = new InputWay[k];
 
     for (int i = 0; i < k; i++) {
         // надо посчитать, сколько байт отрезать в каждый путь
         int nelem = (totalsize < memsize) ? totalsize : memsize;
-        printf("%d/%d %d\n", i, k, nelem*sizeof(data_type));
-        read(ind, numbuf, nelem);
+        printf("%d/%d %d bytes\n", i, k, nelem*sizeof(data_type));
+        size_t rd = read(ind, numbuf, nelem*sizeof(data_type));  // use return value or not?
+        //printf("read %u\n")
+        //for (int j = 0; j < nelem; j++)
+        //    printf("%u\n", numbuf[j]);
         qsort(numbuf, nelem, sizeof(data_type), compare);
-        ways[i].remain = nelem;
-        strcpy(ways[i].filename, "/tmp/extsortXXXXXX");
-        ways[i].fd = mkstemp(ways[i].filename);
-        write(ways[i].fd, numbuf, nelem * sizeof(data_type));
-        lseek(ways[i].fd, 0, SEEK_SET);
+
+        ways[i] = InputWay(numbuf, nelem, way_size);
+
         totalsize -= memsize;
     }
+    delete[] numbuf;
+
+    int outd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    printf("outd = %d\n", outd);
+    size_t j = 0;
+    data_type* outbuf = new data_type[way_size];
+    while (true) {
+        // find max element
+        data_type max = 0;
+        InputWay *max_way = nullptr;
+        for (int i = 0; i < k; i++) {
+            data_type xi = ways[i].curr_data();
+            //printf("xi = %u\n", xi);
+            if (!ways[i].empty() && (xi >= max)) {
+                max = xi;
+                max_way = ways + i;
+            }
+        }
+        if (max_way == nullptr) {  // finished
+            break;
+        }
+        data_type x = max_way->read_data();
+        //printf("max = %u\n", x);
+        outbuf[j] = x;
+        j++;
+        if (j == way_size) {
+            write(outd, outbuf, way_size*sizeof(data_type));
+            j = 0;
+        }
+    }
+    write(outd, outbuf, j*sizeof(data_type));
+    delete[] outbuf;
+
+    close(outd);
     close(ind);
-
-    // весь буфер надо поделить на k+1 примерно равных блоков
-    // и создать выходной файл
-    Way out;
-    out.fd = open(out_name, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    strncpy(out.filename, out_name, 16);  // вообще не нужно
-
-    int way_size = memsize / (k+1);
-    for (int i = 0; i < k; i++) {
-        ways[i].pos = 0;
-        ways[i].size = way_size;
-        ways[i].buf = numbuf + way_size;
-        print_way_info(ways + i);
-    }
-    out.pos = 0;
-    out.size = memsize - way_size * k;
-
-    printf("out:\n");
-    print_way_info(&out);
-
-    // нужно пройти по всем путям и посмотреть, у кого наибольшее первое число
-    // в выбранном пути мы двигаем pos (возможно, после этого дозагружаем данные)
-    // найденную цифру аккуратно сливаем в выходной путь out way
-    // и так пока все входные данные не закончатся
-    //
-    // то есть нужно написать 3 функции:
-    // - выбрать путь с наименьшим (наибольшим) первым числом (remainder == 0 -> забиваем на этот путь)
-    //    Way *find_next(Way *ways, size_t k)
-    // - взять число из пути (с догрузкой, если надо)
-    //    data_type read_next_data(Way *source)
-    // - залить число в выходник
-    //    void write_to_way(Way *to, data_type data)
-
-    // удаление временных файлов и освобождение памяти
-    close(out.fd);
-    for (int i = 0; i < k; i++) {
-        close(ways[i].fd);
-        unlink(ways[i].filename);
-    }
     delete[] ways;
-    free(numbuf);
-}
-
-data_type read_next_data(Way *source)
-{
-    data_type ret_val = source->buf[source->pos];
-    source->pos++;
-    if (source->pos == source->size) {
-        //source->remain = source->remain > source->
-    }
-}
-
-Way *find_next(Way *ways, size_t k)
-{
-    Way *found = NULL;
-    data_type max = 0; // minimal uint32_t number
-
-    for (int i = 0; i < k; i++) {
-        if (ways[i].remain == -1)
-            continue;
-        if (ways[i].buf[ways[i].pos] >= max)
-            found = ways + i;
-    }
-
-    return found;
 }

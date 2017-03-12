@@ -7,7 +7,7 @@ CXX=g++
 CCFLAGS=-g
 CXXFLAGS=--std=c++11
 
-all: genfile extsort intsort
+all: genfile extsort intsort firstn
 
 # External sorting
 extsort: extsort.o data_type.o
@@ -30,5 +30,11 @@ genfile: genfile.o data_type.o
 genfile.o: genfile.c
 	$(CC) $(CCFLAGS) -c genfile.c
 
+firstn: firstn.o
+	$(CC) $(CCFLAGS) -o firstn firstn.o
+
+firstn.o: firstn.c
+	$(CC) $(CCFLAGS) -c firstn.c
+
 clean:
-	rm *.o genfile extsort intsort
+	rm *.o genfile extsort intsort firstn
