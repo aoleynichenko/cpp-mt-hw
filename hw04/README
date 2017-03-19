@@ -1,0 +1,3 @@
+Simple chat based on Linux Epoll.
+Note: only server is implemented, use Telnet as a client to write messages.
+
