@@ -63,10 +63,10 @@ void _printer(Coroutine::Engine& pe, std::string& result) {
     result = out.str();
 }
 
-/*TEST(CoroutineTest, Printer) {
+TEST(CoroutineTest, Printer) {
     Coroutine::Engine engine;
 
     std::string result;
     engine.start(_printer, engine, result);
     ASSERT_STREQ("A1 B1 A2 B2 A3 B3 END", result.c_str());
-}*/
+}
