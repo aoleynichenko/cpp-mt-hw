@@ -9,23 +9,29 @@ namespace Coroutine {
 void Engine::Store(context& ctx) {
     char stackStart;
 
-    ctx.Low = this->StackBottom;
-    ctx.Hight = &stackStart;
-    uint32_t size = ctx.Low - ctx.Hight;
+    ctx.Low = ctx.Hight = this->StackBottom;
+    // ctx.Hight = &stackStart;
+    // uint32_t size = ctx.Low - ctx.Hight;
+    if (stackStart > ctx.Low) {
+      ctx.Hight = stackStart;
+    } else {
+      ctx.Low = stackStart;
+    }
 
   /*  printf("Store:\n");
     printf("Low = %p\nHight = %p\n", ctx.Low, ctx.Hight);
     printf("Low %s Hight\n", ctx.Low < ctx.Hight ? "<" : ">");
     printf("Size = %u\n", size);*/
 
-    if (std::get<0>(ctx.Stack) != nullptr) {
+    int size = ctx.Hight - ctx.Low;
+    if (std::get<1>(ctx.Stack) < size) {
         delete std::get<0>(ctx.Stack);
-    }
+        std::get<0>(ctx.Stack) = new char[size];
+        std::get<1>(ctx.Stack) = size;
+  }
 
-    std::get<0>(ctx.Stack) = new char[size];
-    std::get<1>(ctx.Stack) = size;
 
-    memcpy(std::get<0>(ctx.Stack), ctx.Hight, size);
+  memcpy(std::get<0>(ctx.Stack), ctx.Hight, size);
     //printf("Stack saved\n");
 
     /*if (cur_routine == nullptr) {
@@ -38,18 +44,11 @@ void Engine::Restore(context& ctx) {
     char stackStart;
     char *stackAddr = &stackStart;
 
-    //printf("from Restore()\n");
-    //printf("Low = %p   Hight = %p    Addr = %p\n", ctx.Low, ctx.Hight, stackAddr);
-
-    if (ctx.Low <= stackAddr && stackAddr <= ctx.Hight ||
-        ctx.Hight <= stackAddr && stackAddr <= ctx.Low) {
+    if (ctx.Low <= stackAddr && stackAddr <= ctx.Hight) {
             Restore(ctx);
     }
 
-    memcpy(ctx.Hight, std::get<0>(ctx.Stack), std::get<1>(ctx.Stack));
-
-    //printf("LONGJMP!\n");
-
+    memcpy(ctx.Low, std::get<0>(ctx.Stack), std::get<1>(ctx.Stack));
     longjmp(ctx.Environment, 1);
 }
 
@@ -57,32 +56,63 @@ void Engine::yield() {
     // TODO: implements
     // setjmp, longjmp...
 }
-int i =0;
+
 void Engine::sched(void* routine) {
     // TODO: implements
     // setjmp, longjmp...
-    context *ctx = (context *) routine;
-    if (i ++ > 5)
-      exit(0);
-
-    printf("sched(): cur_routine = %p\n", cur_routine);
-    printf("sched(): ctx = %p\n", ctx);
-
-    if (!ctx->was_invoked) {
-        Restore(*ctx);
-    }
-    else {
-        // point for longjmp
-        int s = setjmp(cur_routine->Environment);
-        if (s == 0) {
-              Store(*cur_routine);
-              printf("do longjmp\n");
-              Restore(*ctx);   // longjmp here
-        }
+    if (cur_routine != nullptr) {
+      if (setjmp(cur_routine->Env) != 0) {
+        return;
+      }
+      Store(cur_routine)
     }
 
-    cur_routine = ctx;
+    if (routine->callee != nullptr && routine->callee == cur_routine) {
+      routine->callee = routine->callee->caller = nullptr;
+    }
 
+    while (routine->callee != nullptr) {
+      routine = routine->callee;
+    }
+
+    cur_routine = routine;
+    Restore(routine);
+
+    // context *ctx = (context *) routine;
+    // if (i ++ > 10)
+    //   exit(0);
+    //
+    // printf("sched(): cur_routine = %p\n", cur_routine);
+    // printf("sched(): ctx = %p\n", ctx);
+    //
+    // if (!ctx->was_invoked) {
+    //     cur_routine = ctx;
+    //     Restore(*ctx);
+    // }
+    // else {
+    //     // point for longjmp
+    //     int s = setjmp(cur_routine->Environment);
+    //     if (s == 0) {
+    //           Store(*cur_routine);
+    //           printf("do longjmp\n");
+    //           cur_routine = ctx;
+    //           Restore(*ctx);   // longjmp here
+    //     }
+    //     // longjumped here
+    //     printf("jumped to continue place\n");
+    //
+    //     /*else {
+    //         // continue execution
+    //         printf("jumped to continue place\n");
+    //
+    //         Store(*cur_routine);
+    //         cur_routine = ctx;
+    //         Restore(*ctx);   // longjmp here
+    //     }*/
+    // }
+    //
+    // cur_routine = ctx;
+    //
     // continue coroutine execution after sched()
 }
 

@@ -7,35 +7,22 @@ CXX=g++
 CCFLAGS=
 CXXFLAGS=--std=c++11
 
-all: genfile extsort intsort
+all: genfile extsort
 
-# External sorting
-extsort: extsort.o data_type.o
-	$(CXX) -o extsort extsort.o data_type.o -lm
-
-extsort.o: extsort.cpp
-	$(CXX) $(CXXFLAGS) -c extsort.cpp
-
-# Internal sorting
-intsort: intsort.o data_type.o
-	$(CC) -o intsort intsort.o data_type.o
-
-intsort.o: intsort.c
-	$(CC) $(CCFLAGS) -c intsort.c
+# External sorting program
+extsort: main.cpp InputWay.cpp OutputWay.cpp
+	$(CXX) $(CXXFLAGS) -o extsort main.cpp InputWay.cpp OutputWay.cpp -lm
 
 # Test generator
-genfile: genfile.o data_type.o
-	$(CC) -o genfile genfile.o data_type.o
-
-genfile.o: genfile.c
-	$(CC) $(CCFLAGS) -c genfile.c
+genfile: genfile.c
+	$(CC) $(CCFLAGS) genfile.c -o genfile
 
 clean:
-	rm *.o genfile extsort intsort
+	rm genfile extsort
 
 test:
-	./genfile --sz 50
-	./extsort unsorted extsorted 10
+	./genfile --sz 100
+	./extsort unsorted extsorted 3
 	diff sorted extsorted
 	rm sorted unsorted extsorted
 

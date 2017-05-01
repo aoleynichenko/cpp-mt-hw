@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef uint32_t data_type;
+typedef uint32_t data_type_t;
 
 #define DATA_MIN_VALUE 0
 
