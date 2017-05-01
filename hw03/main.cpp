@@ -1,10 +1,12 @@
 // Homework 3
-// External k-way sorting
+// MANY-pass K-way external sorting code
+//
 // Alexander Oleynichenko, 2017
 // mailto: ao2310@yandex.ru
 //
 // Algorithm details:
 // https://en.wikipedia.org/wiki/External_sorting#External_merge_sort
+// https://en.wikipedia.org/wiki/External_sorting#Additional_passes
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -22,15 +24,76 @@
 #include <string>
 #include <vector>
 
+// maximum number of input ways used to perform one merge operation
+// should be less or equal to the limit of opened files per process
 #define MAXWAYS 20
 
 using std::queue;
 using std::string;
 using std::vector;
 
+// comparator
 int data_less(const void *a, const void *b)
 {
     return *(data_type_t*) a < *(data_type_t*) b;
+}
+
+int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t nbytes);
+int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size);
+
+int main(int argc, char **argv)
+{
+    // NOTE: parsing of argv is rather inaccurate
+    if (argc != 4) {
+        printf("Usage: %s <inp-file> <out-file> <mb>\n", argv[0]);
+        return 1;
+    }
+
+    string unsorted_filename = argv[1];
+    string sorted_filename = argv[2];
+    int mb = atoi(argv[3]);
+    printf("Input file = '%s' Output file = '%s' MB = %d\n",
+           unsorted_filename.c_str(), sorted_filename.c_str(), mb);
+
+    queue<string> queue1, queue2;
+    queue<string>* curr_queue = &queue1;
+    queue<string>* next_queue = &queue2;
+
+    // split stage
+    int err = split(unsorted_filename, *curr_queue, (size_t) mb*1024*1024);
+    if (err == -1) {
+        perror("in split() ");
+        return 1;
+    }
+
+    size_t nbytes = (size_t) mb*1024*1024;
+    size_t buf_size = nbytes / sizeof(data_type_t);
+    data_type_t* buf = new data_type_t[buf_size];
+
+    // merge stage
+    printf("merge\n");
+    while (curr_queue->size() != 1) {
+        printf("new level\n");
+        while (!curr_queue->empty()) {
+            merge(*curr_queue, *next_queue, buf, buf_size);
+        }
+        // swap queues
+        if (curr_queue == &queue1) {
+            curr_queue = &queue2;
+            next_queue = &queue1;
+        }
+        else {
+            curr_queue = &queue1;
+            next_queue = &queue2;
+        }
+    }
+
+    delete[] buf;
+
+    // copy resulting tmp file
+    char cmd_buf[1024];
+    sprintf(cmd_buf, "mv %s %s", curr_queue->front().c_str(), sorted_filename.c_str());
+    system(cmd_buf);
 }
 
 
@@ -97,10 +160,12 @@ int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t n
     return 0;
 }
 
-
-// takes MAXWAYS (or less) input files from "inputs", merges it and pushes
+// This functions performs 'elementary' merging operation.
+// It takes MAXWAYS (or less) input files from "inputs", merges it and pushes
 // file name of the resulting (sorted) file to the "outputs"
 // Returns: 0 if success, else -1
+// NOTE: processed input files will be removed from the 'inputs' queue
+
 int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size)
 {
     vector<InputWay*> inp_files;
@@ -108,6 +173,7 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
     size_t way_size = buf_size / (k + 1);
     size_t i = 0;
 
+    // Create k input buffers (so-called input ways) and 1 output buffer (output way)
     printf("%lu-way merge [ ", k);
     for (i = 0; i < k; i++) {
         string input_name = inputs.front();
@@ -136,6 +202,7 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
             break;
         }
 
+        // write max element to the output buffer
         out.put(max_way->get());
     }
 
@@ -146,58 +213,4 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
     for (i = 0; i < k; i++) {
         delete inp_files[i];
     }
-}
-
-
-
-int main(int argc, char **argv)
-{
-    if (argc != 4) {
-        printf("Usage: %s <inp-file> <out-file> <mb>\n", argv[0]);
-        return 1;
-    }
-
-    string unsorted_filename = argv[1];
-    string sorted_filename = argv[2];
-    int mb = atoi(argv[3]);
-    printf("Input file = '%s' Output file = '%s' MB = %d\n",
-           unsorted_filename.c_str(), sorted_filename.c_str(), mb);
-
-    queue<string> queue1, queue2;
-    queue<string>* curr_queue = &queue1;
-    queue<string>* next_queue = &queue2;
-
-    int err = split(unsorted_filename, *curr_queue, (size_t) mb*1024*1024);
-    if (err == -1) {
-        perror("in split() ");
-        return 1;
-    }
-
-    size_t nbytes = (size_t) mb*1024*1024;
-    size_t buf_size = nbytes / sizeof(data_type_t);
-    data_type_t* buf = new data_type_t[buf_size];
-
-    printf("merge\n");
-    while (curr_queue->size() != 1) {
-        printf("new level\n");
-        while (!curr_queue->empty()) {
-            merge(*curr_queue, *next_queue, buf, buf_size);
-        }
-        // swap queues
-        if (curr_queue == &queue1) {
-            curr_queue = &queue2;
-            next_queue = &queue1;
-        }
-        else {
-            curr_queue = &queue1;
-            next_queue = &queue2;
-        }
-    }
-
-    delete[] buf;
-
-    // copy resulting tmp file
-    char cmd_buf[1024];
-    sprintf(cmd_buf, "mv %s %s", curr_queue->front().c_str(), sorted_filename.c_str());
-    system(cmd_buf);
 }

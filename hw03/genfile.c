@@ -1,3 +1,12 @@
+// genfile.c
+// ---------
+// Tiny auxiliary program designed to generate test sets for the external
+// sorting code.
+// Output: sorted and unsorted files with uint32_t numbers
+//
+// Alexander Oleynichenko, 2017
+// ao2310@yandex.ru
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
