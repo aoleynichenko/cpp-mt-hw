@@ -12,10 +12,10 @@ void Engine::Store(context& ctx) {
     ctx.Low = ctx.Hight = this->StackBottom;
     // ctx.Hight = &stackStart;
     // uint32_t size = ctx.Low - ctx.Hight;
-    if (stackStart > ctx.Low) {
-      ctx.Hight = stackStart;
+    if (&stackStart > ctx.Low) {
+      ctx.Hight = &stackStart;
     } else {
-      ctx.Low = stackStart;
+      ctx.Low = &stackStart;
     }
 
   /*  printf("Store:\n");
@@ -57,14 +57,16 @@ void Engine::yield() {
     // setjmp, longjmp...
 }
 
-void Engine::sched(void* routine) {
+void Engine::sched(void* routine_) {
+    context *routine = (context *) routine_;
+
     // TODO: implements
     // setjmp, longjmp...
     if (cur_routine != nullptr) {
-      if (setjmp(cur_routine->Env) != 0) {
+      if (setjmp(cur_routine->Environment) != 0) {
         return;
       }
-      Store(cur_routine)
+      Store(*cur_routine);
     }
 
     if (routine->callee != nullptr && routine->callee == cur_routine) {
@@ -76,7 +78,7 @@ void Engine::sched(void* routine) {
     }
 
     cur_routine = routine;
-    Restore(routine);
+    Restore(*routine);
 
     // context *ctx = (context *) routine;
     // if (i ++ > 10)

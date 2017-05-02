@@ -21,7 +21,6 @@
 // EPOLLERR - error in socket (file descriptor)
 // EPOLLHUP - socket was closed
 
-
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -32,7 +31,11 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include <map>
 #include <vector>
+
+#include "Client.h"
 
 #define MAXEVENTS 64
 #define MAX_MSG_CHUNK 512
@@ -95,6 +98,7 @@ int main (int argc, char** argv)
 {
     int master_socket;
     std::vector<int> slave_sockets;
+    std::map<int, Client> clients;  // map: socket_fd -> Client object
 
     if (argc != 2) {
         fprintf (stderr, "Usage: %s [port]\n", argv[0]);
@@ -135,10 +139,19 @@ int main (int argc, char** argv)
             // error in socket or it was closed
             if ((events[i].events & EPOLLERR) ||
                 (events[i].events & EPOLLHUP) ||
-                (!(events[i].events & EPOLLIN))) {
+                (!(events[i].events & (EPOLLIN | EPOLLOUT)))) {
                 printf("epoll error at descriptor %d\n", fd);
+                clients.erase(fd);
                 close(fd);
                 continue;
+            }
+            if ((events[i].events & EPOLLOUT) && (fd != master_socket)) {
+                Client& c = clients[fd];
+                // flush next chunk of data to the network
+                if (c.flush() == -1) {
+                    clients.erase(fd);  // kick-off
+                    close(fd);
+                }
             }
             // process incoming connections
             else if (fd == master_socket) {
@@ -181,6 +194,8 @@ int main (int argc, char** argv)
                         perror("epoll_ctl");
                         return 1;
                     }
+
+                    clients[infd] = Client(efd, infd);
                 }
                 continue;
             }
@@ -203,14 +218,18 @@ int main (int argc, char** argv)
                         done = 1;
                         break;
                     }
-                    write(1, buf, count);
-                    // resend message to all sockets (clients)
-                    for (size_t i = 0; i < slave_sockets.size(); i++) {
-                        write(slave_sockets[i], buf, count);
+
+                    for (std::pair<const int, Client>& kv : clients) {
+                        int result = kv.second.write_out(buf, count);  // this operation is non-blocking!
+                        if (result == -1) {
+                            clients.erase(fd);
+                            close(fd);
+                        }
                     }
                 }
                 if (done) {
                     printf("connection closed on descriptor %d\n", fd);
+                    clients.erase(fd);
                     close(fd);
                 }
             }
