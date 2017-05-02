@@ -44,8 +44,6 @@ private:
         // To include routine in the different lists, such as "alive", "blocked", e.t.c
         struct context* prev = nullptr;
         struct context* next = nullptr;
-
-        bool was_invoked = false;
     } context;
 
     /**
@@ -125,7 +123,7 @@ public:
         // Start routine execution
         void* pc = run(main, std::forward<Ta>(args)...);
         if (pc != nullptr) {
-            cur_routine = (context*) pc;
+            //cur_routine = (context*) pc;
             sched(pc);
         }
 
@@ -157,9 +155,8 @@ public:
             // Created routine got control in order to start execution. Note that all variables, such as
             // context pointer, arguments and a pointer to the function comes from restored stack
 
-            // invoke routine!
+            // invoke routine
             printf("call routine\n");
-            pc->was_invoked = true;
             func(std::forward<Ta>(args)...);
             std::cout << "complete: " << pc << ", next: " << pc->caller << std::endl;
 
