@@ -16,9 +16,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "data_type.h"
 #include "InputWay.h"
 #include "OutputWay.h"
+#include "data_type.h"
 
 #include <queue>
 #include <string>
@@ -33,16 +33,14 @@ using std::string;
 using std::vector;
 
 // comparator
-int data_less(const void *a, const void *b)
-{
-    return *(data_type_t*) a < *(data_type_t*) b;
+int data_less(const void* a, const void* b) {
+    return *(data_type_t*)a < *(data_type_t*)b;
 }
 
 int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t nbytes);
 int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size);
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     // NOTE: parsing of argv is rather inaccurate
     if (argc != 4) {
         printf("Usage: %s <inp-file> <out-file> <mb>\n", argv[0]);
@@ -53,20 +51,20 @@ int main(int argc, char **argv)
     string sorted_filename = argv[2];
     int mb = atoi(argv[3]);
     printf("Input file = '%s' Output file = '%s' MB = %d\n",
-           unsorted_filename.c_str(), sorted_filename.c_str(), mb);
+        unsorted_filename.c_str(), sorted_filename.c_str(), mb);
 
     queue<string> queue1, queue2;
     queue<string>* curr_queue = &queue1;
     queue<string>* next_queue = &queue2;
 
     // split stage
-    int err = split(unsorted_filename, *curr_queue, (size_t) mb*1024*1024);
+    int err = split(unsorted_filename, *curr_queue, (size_t)mb * 1024 * 1024);
     if (err == -1) {
         perror("in split() ");
         return 1;
     }
 
-    size_t nbytes = (size_t) mb*1024*1024;
+    size_t nbytes = (size_t)mb * 1024 * 1024;
     size_t buf_size = nbytes / sizeof(data_type_t);
     data_type_t* buf = new data_type_t[buf_size];
 
@@ -81,8 +79,7 @@ int main(int argc, char **argv)
         if (curr_queue == &queue1) {
             curr_queue = &queue2;
             next_queue = &queue1;
-        }
-        else {
+        } else {
             curr_queue = &queue1;
             next_queue = &queue2;
         }
@@ -96,7 +93,6 @@ int main(int argc, char **argv)
     system(cmd_buf);
 }
 
-
 // this function splits large unsorted file into many sorted little files (chunks)
 // Algorithm:
 //  1. determine number of entries N in the large input file
@@ -108,24 +104,22 @@ int main(int argc, char **argv)
 // Output:
 //  queue with names of sorted files
 
-int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t nbytes)
-{
+int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t nbytes) {
     struct stat st;
-    size_t n;  // total number of entries
+    size_t n; // total number of entries
 
     printf("split\n");
 
     // get the number of data entries in the (very large) input file
     if (stat(unsorted_file.c_str(), &st) == 0) {
         n = st.st_size / sizeof(data_type_t);
-    }
-    else {
-        return -1;  // file not found
+    } else {
+        return -1; // file not found
     }
 
     // number of entries we can sort simultaneously
     size_t k = nbytes / sizeof(data_type_t);
-    data_type_t *buf = new data_type_t[k];
+    data_type_t* buf = new data_type_t[k];
     if (buf == nullptr) {
         return -1;
     }
@@ -139,11 +133,11 @@ int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t n
 
         // read & sort
         printf("sorting chunk of %lu numbers (%lu MB). ", chunk_size,
-               chunk_size * sizeof(data_type_t)/(1024*1024));
+            chunk_size * sizeof(data_type_t) / (1024 * 1024));
         read(inp_fd, buf, chunk_size * sizeof(data_type_t));
         qsort(buf, chunk_size, sizeof(data_type_t), data_less);
         t2 = clock();
-        printf("sorted in %.2f seconds. ", (double)(t2 - t1)/CLOCKS_PER_SEC);
+        printf("sorted in %.2f seconds. ", (double)(t2 - t1) / CLOCKS_PER_SEC);
 
         // write results to temporary file and remember it's name
         char tmp_name[] = "/tmp/extsortXXXXXX";
@@ -166,8 +160,7 @@ int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t n
 // Returns: 0 if success, else -1
 // NOTE: processed input files will be removed from the 'inputs' queue
 
-int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size)
-{
+int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size) {
     vector<InputWay*> inp_files;
     size_t k = (inputs.size() > MAXWAYS) ? MAXWAYS : inputs.size();
     size_t way_size = buf_size / (k + 1);
@@ -178,12 +171,12 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
     for (i = 0; i < k; i++) {
         string input_name = inputs.front();
         printf("%s ", input_name.c_str());
-        inp_files.push_back(new InputWay(input_name.c_str(), buf + i*way_size, way_size));
+        inp_files.push_back(new InputWay(input_name.c_str(), buf + i * way_size, way_size));
         inputs.pop();
     }
     printf("] ");
 
-    OutputWay out(buf + i*way_size, way_size);
+    OutputWay out(buf + i * way_size, way_size);
 
     while (true) {
         // find max element
@@ -198,7 +191,7 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
                 max_way = inp_files[i];
             }
         }
-        if (max_way == nullptr) {  // finished
+        if (max_way == nullptr) { // finished
             break;
         }
 

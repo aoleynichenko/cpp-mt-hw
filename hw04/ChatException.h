@@ -2,8 +2,8 @@
 #define CHAT_EXCEPTION_H_INCLUDED
 
 #include <exception>
-#include <stdexcept>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 class ChatException : public std::runtime_error {
@@ -18,4 +18,4 @@ private:
     int socket_fd;
 };
 
-#endif  // CHAT_EXCEPTION_H_INCLUDED
+#endif // CHAT_EXCEPTION_H_INCLUDED

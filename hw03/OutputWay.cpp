@@ -8,8 +8,7 @@
 
 using std::string;
 
-OutputWay::OutputWay(data_type_t* buffer, size_t buf_size)
-{
+OutputWay::OutputWay(data_type_t* buffer, size_t buf_size) {
     buf = buffer;
     size = buf_size;
     pos = 0;
@@ -25,16 +24,14 @@ OutputWay::OutputWay(data_type_t* buffer, size_t buf_size)
     file_name = string(fname);
 }
 
-OutputWay::~OutputWay()
-{
+OutputWay::~OutputWay() {
     // flush the remainder from the buffer to disk
     write(fd, buf, pos * sizeof(data_type_t));
 
     close(fd);
 }
 
-void OutputWay::put(data_type_t data)
-{
+void OutputWay::put(data_type_t data) {
     buf[pos] = data;
     pos++;
 
@@ -45,7 +42,6 @@ void OutputWay::put(data_type_t data)
     }
 }
 
-string OutputWay::get_file_name()
-{
+string OutputWay::get_file_name() {
     return file_name;
 }

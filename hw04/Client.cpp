@@ -18,8 +18,8 @@ using std::queue;
 int set_nonblocking(int sock_fd);
 
 Client::Client(int efd, int client_sock_fd)
-    :   epoll_fd(efd), socket(client_sock_fd)
-{
+    : epoll_fd(efd)
+    , socket(client_sock_fd) {
     epoll_event event;
 
     set_nonblocking(socket);
@@ -37,22 +37,19 @@ Client::Client(int efd, int client_sock_fd)
 Client::Client() {}
 
 Client::Client(Client&& other)
-    :   epoll_fd(other.epoll_fd)
-{
+    : epoll_fd(other.epoll_fd) {
     socket = other.socket;
     other.socket = VOID_SOCKET;
 }
 
-Client::~Client()
-{
+Client::~Client() {
     if (socket != VOID_SOCKET) {
         close(socket);
         printf("connection closed on descriptor %d\n", socket);
     }
 }
 
-Client& Client::operator=(Client&& other)
-{
+Client& Client::operator=(Client&& other) {
     if (this != &other) {
         epoll_fd = other.epoll_fd;
         socket = other.socket;
@@ -61,8 +58,7 @@ Client& Client::operator=(Client&& other)
     return *this;
 }
 
-void Client::write_out(char* buf, size_t len)
-{
+void Client::write_out(char* buf, size_t len) {
     // if the socket was moved from this object
     if (socket == VOID_SOCKET) {
         throw ChatException(socket, "in Client::write_out(): the socket was moved");
@@ -89,8 +85,7 @@ void Client::write_out(char* buf, size_t len)
     }
 }
 
-void Client::flush()
-{
+void Client::flush() {
     // if the socket was moved from this object
     if (socket == VOID_SOCKET) {
         throw ChatException(socket, "in Client::write_out(): the socket was moved");
@@ -103,7 +98,7 @@ void Client::flush()
     if (n_written == -1) {
         throw ChatException(socket, "write in Client::flush()", true);
     }
-    t.written += (size_t) n_written;
+    t.written += (size_t)n_written;
 
     // check: if this write task is finished or not?
     if (t.written == t.size) { // finished

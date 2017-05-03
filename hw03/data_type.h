@@ -9,12 +9,12 @@ typedef uint32_t data_type_t;
 
 #ifdef __cplusplus
 extern "C" {
-#endif  // C++ defined
+#endif // C++ defined
 
-int data_less(const void *, const void *);
+int data_less(const void*, const void*);
 
 #ifdef __cplusplus
 }
-#endif  // C++ defined
+#endif // C++ defined
 
-#endif  // ifndef DATA_TYPE_H
+#endif // ifndef DATA_TYPE_H

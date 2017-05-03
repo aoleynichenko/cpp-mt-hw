@@ -1,9 +1,9 @@
 #ifndef CLIENT_H_INCLUDED
 #define CLIENT_H_INCLUDED
 
-#include <sys/epoll.h>
 #include <queue>
 #include <stddef.h>
+#include <sys/epoll.h>
 
 class Client {
 public:
@@ -20,6 +20,7 @@ public:
     void write_out(char* buf, size_t len);
 
     void flush();
+
 private:
     struct WriteTask {
         char* buf;

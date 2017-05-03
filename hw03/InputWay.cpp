@@ -8,8 +8,7 @@
 
 using std::string;
 
-InputWay::InputWay(const char* file_name, data_type_t* buffer, size_t buf_size)
-{
+InputWay::InputWay(const char* file_name, data_type_t* buffer, size_t buf_size) {
     struct stat st;
 
     buf = buffer;
@@ -19,8 +18,7 @@ InputWay::InputWay(const char* file_name, data_type_t* buffer, size_t buf_size)
     // determine, how many numbers we should read
     if (stat(file_name, &st) == 0) {
         remain = st.st_size / sizeof(data_type_t);
-    }
-    else {
+    } else {
         fprintf(stderr, "Error in InputWay::InputWay() stat()\n");
         return;
     }
@@ -34,21 +32,18 @@ InputWay::InputWay(const char* file_name, data_type_t* buffer, size_t buf_size)
     filename = string(file_name);
 }
 
-InputWay::~InputWay()
-{
+InputWay::~InputWay() {
     close(fd);
     unlink(filename.c_str());
 }
 
 // returns true of all data was read from the disk
-bool InputWay::empty()
-{
+bool InputWay::empty() {
     return (pos == size) && (remain == 0);
 }
 
 // returns the next value to be read
-data_type_t InputWay::top()
-{
+data_type_t InputWay::top() {
     if (empty()) {
         return 0;
     }
@@ -59,8 +54,7 @@ data_type_t InputWay::top()
 }
 
 // reads the next value from file (using buffer) and returns it
-data_type_t InputWay::get()
-{
+data_type_t InputWay::get() {
     data_type_t top_number = top();
     pos++;
     return top_number;
@@ -70,9 +64,8 @@ data_type_t InputWay::get()
 // private methods
 //------------------------------
 
-void InputWay::load_chunk()
-{
-    if (remain == 0) {  // nothing to read
+void InputWay::load_chunk() {
+    if (remain == 0) { // nothing to read
         return;
     }
 

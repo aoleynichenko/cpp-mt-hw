@@ -44,7 +44,6 @@
 int create_master_socket(char* port_str);
 int set_nonblocking(int sock_fd);
 
-
 // creates socket on port specified in port_str
 // returns: socket descriptor or -1 if an error occured
 int create_master_socket(char* port_str) {
@@ -61,7 +60,7 @@ int create_master_socket(char* port_str) {
 
     sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-    int s = bind(sock_fd, (struct sockaddr *) &sock_addr, sizeof(sock_addr));
+    int s = bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr));
     if (s == -1) {
         perror("bind");
         return -1;
@@ -76,11 +75,10 @@ int create_master_socket(char* port_str) {
     return sock_fd;
 }
 
-
 int set_nonblocking(int sock_fd) {
     int flags = fcntl(sock_fd, F_GETFL, 0);
     if (flags == -1) {
-        perror ("fcntl");
+        perror("fcntl");
         return -1;
     }
 
@@ -88,20 +86,18 @@ int set_nonblocking(int sock_fd) {
 
     int s = fcntl(sock_fd, F_SETFL, flags);
     if (s == -1) {
-        perror ("fcntl");
+        perror("fcntl");
         return -1;
     }
     return 0;
 }
 
-
-int main (int argc, char** argv)
-{
+int main(int argc, char** argv) {
     int master_socket;
-    std::map<int, Client> clients;  // map: socket_fd -> Client object
+    std::map<int, Client> clients; // map: socket_fd -> Client object
 
     if (argc != 2) {
-        fprintf (stderr, "Usage: %s [port]\n", argv[0]);
+        fprintf(stderr, "Usage: %s [port]\n", argv[0]);
         return 1;
     }
 
@@ -120,7 +116,7 @@ int main (int argc, char** argv)
     // data for epoll
     int efd = epoll_create1(0);
     struct epoll_event event;
-    struct epoll_event *events;
+    struct epoll_event* events;
 
     event.data.fd = master_socket;
     event.events = EPOLLIN | EPOLLET;
@@ -135,84 +131,78 @@ int main (int argc, char** argv)
     while (true) {
         int n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (int i = 0; i < n; i++) {
-        try {
-            int fd = events[i].data.fd;
-            // error in socket or it was closed
-            if ((events[i].events & EPOLLERR) ||
-                (events[i].events & EPOLLHUP) ||
-                (!(events[i].events & (EPOLLIN | EPOLLOUT)))) {
-                printf("epoll error at descriptor %d\n", fd);
-                clients.erase(fd);
-                continue;
-            }
-            if ((events[i].events & EPOLLOUT) && (fd != master_socket)) {
-                Client& c = clients[fd];
-                // flush next chunk of data to the network
-                // here an object on ChatException can be thrown
-                c.flush();
-            }
-            // process incoming connections
-            else if (fd == master_socket) {
-                while (true) {
-                    struct sockaddr in_addr;
-                    socklen_t in_len;
-                    int infd;
-                    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+            try {
+                int fd = events[i].data.fd;
+                // error in socket or it was closed
+                if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & (EPOLLIN | EPOLLOUT)))) {
+                    printf("epoll error at descriptor %d\n", fd);
+                    clients.erase(fd);
+                    continue;
+                }
+                if ((events[i].events & EPOLLOUT) && (fd != master_socket)) {
+                    Client& c = clients[fd];
+                    // flush next chunk of data to the network
+                    // here an object on ChatException can be thrown
+                    c.flush();
+                }
+                // process incoming connections
+                else if (fd == master_socket) {
+                    while (true) {
+                        struct sockaddr in_addr;
+                        socklen_t in_len;
+                        int infd;
+                        char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
-                    in_len = sizeof(in_addr);
-                    infd = accept(master_socket, &in_addr, &in_len);
+                        in_len = sizeof(in_addr);
+                        infd = accept(master_socket, &in_addr, &in_len);
 
-                    if (infd == -1) {
-                        if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-                            break; // no incoming connections remain
+                        if (infd == -1) {
+                            if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                                break; // no incoming connections remain
+                            } else {
+                                perror("accept\n");
+                                break;
+                            }
                         }
-                        else {
-                            perror("accept\n");
+
+                        clients[infd] = Client(efd, infd);
+                    }
+                    continue;
+                }
+                // new message was received
+                else {
+                    int done = 0;
+                    // read input message chunk-by-chunk
+                    while (true) {
+                        ssize_t count;
+                        char buf[MAX_MSG_CHUNK];
+                        count = read(fd, buf, sizeof(buf));
+                        if (count == -1) {
+                            if (errno != EAGAIN) {
+                                perror("read");
+                                done = 1;
+                            }
+                            break;
+                        } else if (count == 0) { // EOF; connection closed
+                            done = 1;
                             break;
                         }
-                    }
 
-                    clients[infd] = Client(efd, infd);
-                }
-                continue;
-            }
-            // new message was received
-            else {
-                int done = 0;
-                // read input message chunk-by-chunk
-                while (true) {
-                    ssize_t count;
-                    char buf[MAX_MSG_CHUNK];
-                    count = read(fd, buf, sizeof(buf));
-                    if (count == -1) {
-                        if (errno != EAGAIN) {
-                            perror("read");
-                            done = 1;
+                        for (std::pair<const int, Client>& kv : clients) {
+                            // here an object on ChatException can be thrown
+                            kv.second.write_out(buf, count); // this operation is non-blocking!
                         }
-                        break;
                     }
-                    else if (count == 0) {  // EOF; connection closed
-                        done = 1;
-                        break;
-                    }
-
-                    for (std::pair<const int, Client>& kv : clients) {
-                        // here an object on ChatException can be thrown
-                        kv.second.write_out(buf, count);  // this operation is non-blocking!
+                    if (done) {
+                        clients.erase(fd);
                     }
                 }
-                if (done) {
-                    clients.erase(fd);
-                }
+            } catch (ChatException& ex) {
+                printf("Error: %s\n", ex.what());
+                close(ex.get_socket());
             }
-        }
-        catch (ChatException& ex) {
-            printf("Error: %s\n", ex.what());
-            close(ex.get_socket());
-        }
         }
     }
-
 
     delete[] events;
     close(master_socket);
