@@ -8,24 +8,66 @@
 
 #include <queue>
 
+#include "ChatException.h"
 #include "Client.h"
 
 using std::queue;
 
+#define VOID_SOCKET -1
+
+int set_nonblocking(int sock_fd);
 
 Client::Client(int efd, int client_sock_fd)
     :   epoll_fd(efd), socket(client_sock_fd)
 {
+    epoll_event event;
+
+    set_nonblocking(socket);
+
+    event.data.fd = socket;
+    event.events = EPOLLIN | EPOLLET;
+    int s = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket, &event);
+    if (s == -1) {
+        throw ChatException(socket, "in Client::Client: ", true);
+    }
+
+    printf("Accepted connection on descriptor %d\n", socket);
 }
 
 Client::Client() {}
 
-Client::Client(const Client&) {}
-
-// returns 0 if success, else -1
-// if an error occured, whe should simply shutdown connection
-int Client::write_out(char* buf, size_t len)
+Client::Client(Client&& other)
+    :   epoll_fd(other.epoll_fd)
 {
+    socket = other.socket;
+    other.socket = VOID_SOCKET;
+}
+
+Client::~Client()
+{
+    if (socket != VOID_SOCKET) {
+        close(socket);
+        printf("connection closed on descriptor %d\n", socket);
+    }
+}
+
+Client& Client::operator=(Client&& other)
+{
+    if (this != &other) {
+        epoll_fd = other.epoll_fd;
+        socket = other.socket;
+        other.socket = VOID_SOCKET;
+    }
+    return *this;
+}
+
+void Client::write_out(char* buf, size_t len)
+{
+    // if the socket was moved from this object
+    if (socket == VOID_SOCKET) {
+        throw ChatException(socket, "in Client::write_out(): the socket was moved");
+    }
+
     // create and initialize write task
     WriteTask t;
     t.buf = new char[len];
@@ -39,25 +81,27 @@ int Client::write_out(char* buf, size_t len)
     // tell epoll to listen for 'socket is writeable' events
     epoll_event event;
     event.data.fd = socket;
-    event.events = EPOLLIN | /*EPOLLET |*/ EPOLLOUT;
+    event.events = EPOLLIN | EPOLLOUT;
 
     int s = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, socket, &event);
     if (s == -1) {
-        perror("epoll_ctl in Client::write()");
-        return -1;
+        throw ChatException(socket, "epoll_ctl in Client::write_out()", true);
     }
-    return 0;
 }
 
-int Client::flush()
+void Client::flush()
 {
+    // if the socket was moved from this object
+    if (socket == VOID_SOCKET) {
+        throw ChatException(socket, "in Client::write_out(): the socket was moved");
+    }
+
     WriteTask& t = output.front();
     size_t remain = t.size - t.written;
 
     int n_written = write(socket, t.buf + t.written, remain);
     if (n_written == -1) {
-        perror("write in Client::flush()");
-        return -1;
+        throw ChatException(socket, "write in Client::flush()", true);
     }
     t.written += (size_t) n_written;
 
@@ -75,11 +119,7 @@ int Client::flush()
 
         int s = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, socket, &event);
         if (s == -1) {
-            perror("epoll_ctl in Client::flush()");
-            return -1;
+            throw ChatException(socket, "epoll_ctl in Client::flush()", true);
         }
     }
-
-    // success
-    return 0;
 }

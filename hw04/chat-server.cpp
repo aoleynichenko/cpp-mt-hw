@@ -35,6 +35,7 @@
 #include <map>
 #include <vector>
 
+#include "ChatException.h"
 #include "Client.h"
 
 #define MAXEVENTS 64
@@ -97,7 +98,6 @@ int set_nonblocking(int sock_fd) {
 int main (int argc, char** argv)
 {
     int master_socket;
-    std::vector<int> slave_sockets;
     std::map<int, Client> clients;  // map: socket_fd -> Client object
 
     if (argc != 2) {
@@ -135,6 +135,7 @@ int main (int argc, char** argv)
     while (true) {
         int n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (int i = 0; i < n; i++) {
+        try {
             int fd = events[i].data.fd;
             // error in socket or it was closed
             if ((events[i].events & EPOLLERR) ||
@@ -142,16 +143,13 @@ int main (int argc, char** argv)
                 (!(events[i].events & (EPOLLIN | EPOLLOUT)))) {
                 printf("epoll error at descriptor %d\n", fd);
                 clients.erase(fd);
-                close(fd);
                 continue;
             }
             if ((events[i].events & EPOLLOUT) && (fd != master_socket)) {
                 Client& c = clients[fd];
                 // flush next chunk of data to the network
-                if (c.flush() == -1) {
-                    clients.erase(fd);  // kick-off
-                    close(fd);
-                }
+                // here an object on ChatException can be thrown
+                c.flush();
             }
             // process incoming connections
             else if (fd == master_socket) {
@@ -172,27 +170,6 @@ int main (int argc, char** argv)
                             perror("accept\n");
                             break;
                         }
-                    }
-
-                    // all is OK, store new slave socket
-                    set_nonblocking(infd);
-                    slave_sockets.push_back(infd);
-
-                    s = getnameinfo(&in_addr, in_len,
-                                    hbuf, sizeof(hbuf),
-                                    sbuf, sizeof(sbuf),
-                                    NI_NUMERICHOST | NI_NUMERICSERV);
-                    if (s == 0) {
-                        printf("Accepted connection on descriptor %d "
-                               "(host=%s, port=%s)\n", infd, hbuf, sbuf);
-                    }
-
-                    event.data.fd = infd;
-                    event.events = EPOLLIN | EPOLLET;
-                    s = epoll_ctl(efd, EPOLL_CTL_ADD, infd, &event);
-                    if (s == -1) {
-                        perror("epoll_ctl");
-                        return 1;
                     }
 
                     clients[infd] = Client(efd, infd);
@@ -220,21 +197,22 @@ int main (int argc, char** argv)
                     }
 
                     for (std::pair<const int, Client>& kv : clients) {
-                        int result = kv.second.write_out(buf, count);  // this operation is non-blocking!
-                        if (result == -1) {
-                            clients.erase(fd);
-                            close(fd);
-                        }
+                        // here an object on ChatException can be thrown
+                        kv.second.write_out(buf, count);  // this operation is non-blocking!
                     }
                 }
                 if (done) {
-                    printf("connection closed on descriptor %d\n", fd);
                     clients.erase(fd);
-                    close(fd);
                 }
             }
         }
+        catch (ChatException& ex) {
+            printf("Error: %s\n", ex.what());
+            close(ex.get_socket());
+        }
+        }
     }
+
 
     delete[] events;
     close(master_socket);

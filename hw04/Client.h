@@ -10,11 +10,16 @@ public:
     Client(int efd, int client_sock_fd);
 
     Client();
-    Client(const Client&);
+    Client(const Client&) = delete;
+    Client(Client&&);
+    ~Client();
 
-    int write_out(char* buf, size_t len);
+    Client& operator=(const Client&) = delete;
+    Client& operator=(Client&&);
 
-    int flush();
+    void write_out(char* buf, size_t len);
+
+    void flush();
 private:
     struct WriteTask {
         char* buf;
