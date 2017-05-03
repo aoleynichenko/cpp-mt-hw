@@ -161,7 +161,7 @@ int split(const string& unsorted_file, queue<string>& chunks_filenames, size_t n
 // NOTE: processed input files will be removed from the 'inputs' queue
 
 int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_t buf_size) {
-    vector<InputWay*> inp_files;
+    vector<InputWay> inp_files;
     size_t k = (inputs.size() > MAXWAYS) ? MAXWAYS : inputs.size();
     size_t way_size = buf_size / (k + 1);
     size_t i = 0;
@@ -171,7 +171,7 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
     for (i = 0; i < k; i++) {
         string input_name = inputs.front();
         printf("%s ", input_name.c_str());
-        inp_files.push_back(new InputWay(input_name.c_str(), buf + i * way_size, way_size));
+        inp_files.push_back(InputWay(input_name.c_str(), buf + i * way_size, way_size));
         inputs.pop();
     }
     printf("] ");
@@ -185,10 +185,10 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
         InputWay* max_way = nullptr;
 
         for (size_t i = 0; i < k; i++) {
-            data_type_t xi = inp_files[i]->top();
-            if (!inp_files[i]->empty() && data_less(&max, &xi)) {
+            data_type_t xi = inp_files[i].top();
+            if (!inp_files[i].empty() && data_less(&max, &xi)) {
                 max = xi;
-                max_way = inp_files[i];
+                max_way = &inp_files[i];
             }
         }
         if (max_way == nullptr) { // finished
@@ -203,7 +203,7 @@ int merge(queue<string>& inputs, queue<string>& outputs, data_type_t* buf, size_
     printf("-> %s\n", out.get_file_name().c_str());
 
     // cleanup
-    for (i = 0; i < k; i++) {
+    /*for (i = 0; i < k; i++) {
         delete inp_files[i];
-    }
+    }*/
 }

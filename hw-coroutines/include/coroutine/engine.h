@@ -156,7 +156,6 @@ public:
             // context pointer, arguments and a pointer to the function comes from restored stack
 
             // invoke routine
-            printf("call routine\n");
             func(std::forward<Ta>(args)...);
             std::cout << "complete: " << pc << ", next: " << pc->caller << std::endl;
 

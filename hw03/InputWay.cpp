@@ -1,3 +1,9 @@
+// InputWay.h
+// Implementation: InputWay.cpp
+//
+// A very simple input buffer.
+// Here: "Way" == "Buffer" (k-way sorting)
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <string>
@@ -30,6 +36,16 @@ InputWay::InputWay(const char* file_name, data_type_t* buffer, size_t buf_size) 
     }
 
     filename = string(file_name);
+}
+
+InputWay::InputWay(InputWay&& other)
+    :   pos(other.pos), size(other.size), remain(other.remain), filename(other.filename)
+{
+    fd = other.fd;
+    buf = other.buf;
+
+    other.fd = -1;
+    other.buf = nullptr;
 }
 
 InputWay::~InputWay() {
