@@ -87,8 +87,8 @@ public:
 
     /**
      * Gives up current routine execution and let engine to schedule other one. It is not defined when
-     * routine will get execution back, for example if there are no other coroutines then execution could
-     * be trasferred back immediately (yieled turns to be noop).
+     * routine will get execution back, for example if there are no other coroutines then executing could
+     * be trasferred back immediately (yield turns to be noop).
      *
      * Also there are no guarantee what coroutine will get execution, it could be caller of the current one or
      * any other which is ready to run
@@ -123,7 +123,7 @@ public:
         // Start routine execution
         void* pc = run(main, std::forward<Ta>(args)...);
         if (pc != nullptr) {
-            //cur_routine = (context*) pc;
+            // cur_routine = (context*) pc;
             sched(pc);
         }
 
@@ -179,6 +179,9 @@ public:
             if (alive == cur_routine) {
                 alive = alive->next;
             }
+
+            // current coroutine finished, and the pointer is not relevant now
+            cur_routine = nullptr;
 
             pc->prev = pc->next = nullptr;
             delete std::get<0>(pc->Stack);

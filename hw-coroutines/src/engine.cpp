@@ -11,9 +11,9 @@ void Engine::Store(context& ctx) {
 
     ctx.Low = ctx.Hight = this->StackBottom;
     if (&stackStart > ctx.Low) {
-      ctx.Hight = &stackStart;
+        ctx.Hight = &stackStart;
     } else {
-      ctx.Low = &stackStart;
+        ctx.Low = &stackStart;
     }
 
     int size = ctx.Hight - ctx.Low;
@@ -27,9 +27,8 @@ void Engine::Store(context& ctx) {
 }
 
 void Engine::Restore(context& ctx) {
-    // TODO: implements
     char stackStart;
-    char *stackAddr = &stackStart;
+    char* stackAddr = &stackStart;
 
     if (ctx.Low <= stackAddr && stackAddr <= ctx.Hight) {
         Restore(ctx);
@@ -40,18 +39,46 @@ void Engine::Restore(context& ctx) {
 }
 
 void Engine::yield() {
-    // TODO: implements
-    // setjmp, longjmp...
+    sched(nullptr);
 }
 
 void Engine::sched(void* routine_) {
-    context* routine = (context*) routine_;
+    context* routine = (context*)routine_;
 
     if (cur_routine != nullptr) {
         if (setjmp(cur_routine->Environment) != 0) {
             return;
         }
         Store(*cur_routine);
+    }
+
+    // pass control to the another coroutine
+    // if no another coroutine specified, the same semantics as for yield()
+
+    // these lines are required to exit last run() correctly
+    if (routine == nullptr && cur_routine == nullptr) {
+        return;
+    }
+
+    if (routine == nullptr && cur_routine != nullptr) {
+        // invoke the caller of current coroutine
+        if (cur_routine->caller != nullptr) {
+            routine = cur_routine->caller;
+        }
+        // invoke ANY coroutine another than cur_routine
+        // if no coroutines remain, pass control back to cur_routine
+        else {
+            for (context* p = alive; p != nullptr; p = p->next) {
+                if (p != cur_routine) { // find any routine != cur_routine
+                    routine = p;
+                    break;
+                }
+            }
+            // if only cur_routine remains -> pass back to cur_routine
+            if (routine == nullptr) {
+                routine = cur_routine;
+            }
+        }
     }
 
     if (routine->callee != nullptr && routine->callee == cur_routine) {
@@ -61,6 +88,10 @@ void Engine::sched(void* routine_) {
     while (routine->callee != nullptr) {
         routine = routine->callee;
     }
+
+    // set new caller
+    // recall: caller is a coroutine which invoked "routine" via yield() or sched()
+    routine->caller = cur_routine;
 
     cur_routine = routine;
     Restore(*routine);

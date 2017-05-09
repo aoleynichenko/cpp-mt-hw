@@ -50,11 +50,10 @@ void _printer(Coroutine::Engine& pe, std::string& result) {
     // Create routines, note it doens't get control yet
     pa = pe.run(printa, pe, out, pb);
     pb = pe.run(printb, pe, out, pa);
-    std::cout << "pa = " << pa << ", pb = " << pb << std::endl;
 
     // Pass control to first routine, it will ping pong
     // between printa/printb greedely then we will get
-    // contol back
+    // control back
     pe.sched(pa);
     out << "END";
     std::cout << "END" << std::endl;
