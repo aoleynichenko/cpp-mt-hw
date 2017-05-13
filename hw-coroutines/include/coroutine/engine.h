@@ -141,6 +141,7 @@ public:
         }
 
         // Shutdown runtime
+        delete idle_ctx;
         this->StackBottom = 0;
     }
 
@@ -209,7 +210,6 @@ public:
                 yield();
             }
             Restore(*idle_ctx);
-            //return nullptr;
         }
 
         // setjmp remembers position from which routine could starts execution, but to make it correctly

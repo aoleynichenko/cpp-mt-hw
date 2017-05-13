@@ -11,3 +11,5 @@ tests.done: engine_test
 engine_test: $(SRC) $(HDR)
 	g++ -O1 -g -std=c++11 -o engine_test $(SRC) $(DEPS_FILES) $(TEST_FILES) -Iinclude -I../thirdparty -lpthread -lbfd
 
+clean:
+	rm engine_test
