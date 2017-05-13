@@ -16,23 +16,7 @@ using std::queue;
 #define VOID_SOCKET -1
 
 int set_nonblocking(int sock_fd);
-/*
-Client::Client(int efd, int client_sock_fd)
-    : epoll_fd(efd)
-    , socket(client_sock_fd) {
-    epoll_event event;
 
-    set_nonblocking(socket);
-
-    event.data.fd = socket;
-    event.events = EPOLLIN | EPOLLET;
-    int s = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket, &event);
-    if (s == -1) {
-        throw ChatException(socket, "in Client::Client: ", true);
-    }
-
-    printf("Accepted connection on descriptor %d\n", socket);
-}*/
 
 Client::Client() {}
 
