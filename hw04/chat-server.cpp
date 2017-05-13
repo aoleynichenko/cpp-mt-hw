@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -101,6 +102,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    signal(SIGPIPE, SIG_IGN);
+
     master_socket = create_master_socket(argv[1]);
     if (master_socket == -1) {
         return 1;
@@ -165,7 +168,7 @@ int main(int argc, char** argv) {
                             }
                         }
 
-                        clients[infd] = Client(efd, infd);
+                        clients[infd] = Client::create(efd, infd);
                     }
                     continue;
                 }

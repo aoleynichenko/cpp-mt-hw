@@ -16,7 +16,7 @@ using std::queue;
 #define VOID_SOCKET -1
 
 int set_nonblocking(int sock_fd);
-
+/*
 Client::Client(int efd, int client_sock_fd)
     : epoll_fd(efd)
     , socket(client_sock_fd) {
@@ -32,7 +32,7 @@ Client::Client(int efd, int client_sock_fd)
     }
 
     printf("Accepted connection on descriptor %d\n", socket);
-}
+}*/
 
 Client::Client() {}
 
@@ -56,6 +56,34 @@ Client& Client::operator=(Client&& other) {
         other.socket = VOID_SOCKET;
     }
     return *this;
+}
+
+// static Client create(int epoll_fd, int client_sock_fd);
+
+Client Client::create(int efd, int client_sock_fd)
+{
+    Client new_client;
+
+    new_client.epoll_fd = efd;
+    new_client.socket = client_sock_fd;
+
+    epoll_event event;
+
+    int s = set_nonblocking(new_client.socket);
+    if (s == -1) {
+        throw ChatException(new_client.socket, "in Client::Client: ", true);
+    }
+
+    event.data.fd = new_client.socket;
+    event.events = EPOLLIN | EPOLLET;
+    s = epoll_ctl(new_client.epoll_fd, EPOLL_CTL_ADD, new_client.socket, &event);
+    if (s == -1) {
+        throw ChatException(new_client.socket, "in Client::Client: ", true);
+    }
+
+    printf("Accepted connection on descriptor %d\n", new_client.socket);
+
+    return new_client;
 }
 
 void Client::write_out(char* buf, size_t len) {

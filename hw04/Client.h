@@ -7,8 +7,6 @@
 
 class Client {
 public:
-    Client(int efd, int client_sock_fd);
-
     Client();
     Client(const Client&) = delete;
     Client(Client&&);
@@ -21,7 +19,11 @@ public:
 
     void flush();
 
+    static Client create(int epoll_fd, int client_sock_fd);
+
 private:
+    //Client(int efd, int client_sock_fd);
+
     struct WriteTask {
         char* buf;
         size_t size;
