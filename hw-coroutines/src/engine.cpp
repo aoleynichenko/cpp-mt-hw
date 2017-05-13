@@ -57,7 +57,12 @@ void Engine::sched(void* routine_) {
 
     // these lines are required to exit last run() correctly
     if (routine == nullptr && cur_routine == nullptr) {
-        return;
+        if (alive == nullptr) {
+            return;   // no coroutines remain
+        }
+        else {
+            routine = alive;
+        }
     }
 
     if (routine == nullptr && cur_routine != nullptr) {

@@ -55,6 +55,7 @@ void _printer(Coroutine::Engine& pe, std::string& result) {
     // between printa/printb greedely then we will get
     // control back
     pe.sched(pa);
+
     out << "END";
     std::cout << "END" << std::endl;
 
