@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
                         }
 
                         for (std::pair<const int, Client>& kv : clients) {
-                            // here an object on ChatException can be thrown
+                            // here an instance of ChatException can be thrown
                             kv.second.write_out(buf, count); // this operation is non-blocking!
                         }
                     }

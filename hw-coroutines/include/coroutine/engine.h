@@ -131,7 +131,7 @@ public:
 
         if (setjmp(idle_ctx->Environment) > 0) {
             // Here: correct finish of the coroutine section
-            return;
+            yield();
         }
         else {
             if (pc != nullptr) {
@@ -206,8 +206,6 @@ public:
             // just give up and ask scheduler code to select someone else, control will never returns to this one
             if (next != nullptr) {
                 sched(next);
-            } else {
-                yield();
             }
             Restore(*idle_ctx);
         }
