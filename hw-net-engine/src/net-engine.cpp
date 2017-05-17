@@ -13,14 +13,15 @@ namespace Coroutine {
 
 NetEngine::NetEngine()
 {
-
 }
 
 NetEngine::~NetEngine()
 {
-
 }
 
+/**
+ *  creates channel with unique descriptor and returns descriptor to this channel
+ */
 int NetEngine::create_channel()
 {
     if (channels.empty()) {
@@ -44,6 +45,11 @@ int NetEngine::create_channel()
     return chd;
 }
 
+/**
+ *  creates new channel with desciptor chan_descr or returns existing channel
+ *  (with the same descriptor).
+ *  Returns: channel descriptor
+ */
 int NetEngine::create_channel(int chan_descr)
 {
     std::map<int,Channel>::iterator ch_it = channels.find(chan_descr);
@@ -55,11 +61,28 @@ int NetEngine::create_channel(int chan_descr)
     return chan_descr;
 }
 
+/**
+ *  closes destroys channel only in case there are no locks associated with
+ *  chan_descr. If there are such locks, returns -1 (error), else returns 0 (success)
+ */
 int NetEngine::close_channel(int chan_descr)
 {
+    std::map<int,std::vector<context*>>::iterator chan_locks = locks_table.find(chan_descr);
+
+    // there are locks associated with this channel
+    // we shold not destroy it
+    if (chan_locks != locks_table.end() && !chan_locks->second.empty()) {
+        return -1;
+    }
+
     channels.erase(chan_descr);
+    return 0;
 }
 
+/**
+ *  blocking send().
+ *  Returns: number of bytes written if success or -1 if error
+ */
 ssize_t NetEngine::send_channel(int chan_descr, void* data, size_t nbytes)
 {
     std::map<int,Channel>::iterator ch_it = channels.find(chan_descr);
@@ -77,6 +100,7 @@ ssize_t NetEngine::send_channel(int chan_descr, void* data, size_t nbytes)
     while (written != nbytes) {
         int nwrite = channel.write((char*) data + written, nbytes - written);
         written += nwrite;
+        // unlock routines which wants to read from this channel
         unlock_all(chan_descr, LockedState::LOCKED_READ);
 
         if (written != nbytes) {
@@ -88,6 +112,10 @@ ssize_t NetEngine::send_channel(int chan_descr, void* data, size_t nbytes)
     return written;
 }
 
+/**
+ *  blocking recv().
+ *  Returns: number of bytes read if success or -1 if error
+ */
 ssize_t NetEngine::recv_channel(int chan_descr, void* data, size_t nbytes)
 {
     std::map<int,Channel>::iterator ch_it = channels.find(chan_descr);
@@ -105,6 +133,7 @@ ssize_t NetEngine::recv_channel(int chan_descr, void* data, size_t nbytes)
     while (n_bytes_read != nbytes) {
         int nread = channel.read((char*) data + n_bytes_read, nbytes - n_bytes_read);
         n_bytes_read += nread;
+        // unlock routines which wants to write to this channel
         unlock_all(chan_descr, LockedState::LOCKED_WRITE);
 
         if (n_bytes_read != nbytes) {
@@ -118,6 +147,9 @@ ssize_t NetEngine::recv_channel(int chan_descr, void* data, size_t nbytes)
 
 // protected:
 
+/**
+ *  adds ctx to the locks_table and sets ctx->locked to reason
+ */
 void NetEngine::lock(int chan_descr, context* ctx, LockedState reason)
 {
     if (locks_table.find(chan_descr) == locks_table.end()) {
@@ -128,6 +160,10 @@ void NetEngine::lock(int chan_descr, context* ctx, LockedState reason)
     ctx->locked = reason;
 }
 
+/**
+ *  unlocks all coroutines trying to read or write (determined by the 'reason' argument)
+ *  to channel chan_descr. Erases them from locks_table
+ */
 void NetEngine::unlock_all(int chan_descr, LockedState reason)
 {
     if (locks_table.find(chan_descr) != locks_table.end()) {
