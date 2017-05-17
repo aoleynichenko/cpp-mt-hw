@@ -16,6 +16,13 @@ namespace Coroutine {
 class Engine {
 protected:
     /**
+     * State of the context. LOCKED_READ means that context is waiting for new data
+     * in channel; LOCKED_WRITE means that context cannot write data because
+     * there is no free memory in the channel's buffer
+     */
+    enum LockedState {NOT_LOCKED = 0, LOCKED_WRITE, LOCKED_READ};
+
+    /**
      * A single coroutine instance which could be scheduled for execution
      * should be allocated on heap
      */
@@ -44,6 +51,9 @@ protected:
         // To include routine in the different lists, such as "alive", "blocked", e.t.c
         struct context* prev = nullptr;
         struct context* next = nullptr;
+
+        // state: locked or not
+        LockedState locked = LockedState::NOT_LOCKED;
     } context;
 
     /**

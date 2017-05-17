@@ -61,27 +61,38 @@ void Engine::sched(void* routine_) {
             return;   // no coroutines remain
         }
         else {
-            routine = alive;
+            // find any non-locked routine in the 'alive' list
+            for (context* p = alive; p != nullptr; p = p->next) {
+                if (!p->locked) {
+                    routine = p;
+                    break;
+                }
+            }
         }
     }
 
     if (routine == nullptr && cur_routine != nullptr) {
         // invoke the caller of current coroutine
-        if (cur_routine->caller != nullptr) {
+        if (cur_routine->caller != nullptr && !cur_routine->caller->locked) {
             routine = cur_routine->caller;
         }
         // invoke ANY coroutine another than cur_routine
         // if no coroutines remain, pass control back to cur_routine
         else {
             for (context* p = alive; p != nullptr; p = p->next) {
-                if (p != cur_routine) { // find any routine != cur_routine
+                 // find any routine != cur_routine
+                if (p != cur_routine && !p->locked) {
                     routine = p;
                     break;
                 }
             }
             // if only cur_routine remains -> pass back to cur_routine
-            if (routine == nullptr) {
+            if (routine == nullptr && !cur_routine->locked) {
                 routine = cur_routine;
+            }
+            else if (routine == nullptr) {
+                fprintf(stderr, "Fatal error: dead lock!\n");
+                exit(1);
             }
         }
     }
@@ -90,7 +101,7 @@ void Engine::sched(void* routine_) {
         routine->callee = routine->callee->caller = nullptr;
     }
 
-    while (routine->callee != nullptr) {
+    while (routine->callee != nullptr && !routine->callee->locked) {
         routine = routine->callee;
     }
 

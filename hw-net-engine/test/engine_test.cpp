@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include <iostream>
 #include <sstream>
+#include <string.h>
 
 #include <coroutine/channel.h>
 #include <coroutine/engine.h>
@@ -74,51 +75,97 @@ TEST(CoroutineTest, Printer) {
 }
 
 TEST(CoroutineTest, Channel) {
-    Coroutine::Channel c(10);
+    Coroutine::Channel c = Coroutine::Channel(10);
     char buf[] = "HelloWorldSphere!";
-    char in[20];
+    char out[20];
+    size_t nbytes = strlen(buf);
+    size_t p1 = 0, p2 = 0;
 
-    int nw = c.write(buf, 15);
-    c.dump();
-    std::cout << "nwrite = " << nw << std::endl;
+    while (p2 < strlen(buf)) {
+        int nw = c.write(buf+p1, nbytes);
+        p1 += nw;
+        nbytes -= nw;
 
-    nw = c.write(buf+nw, 5);
-    c.dump();
-    std::cout << "nwrite = " << nw << std::endl;
+        int nr = c.read(out+p2, 5);
+        p2 += nr;
+    }
+    out[p2] = '\0';
 
-    int nr = c.read(in, 6);
-    c.dump();
-    std::cout << "nread = " << nr << std::endl;
-    for (auto i = 0; i < nr; i++)
-        std::cout << in[i];
+    ASSERT_STREQ(out, "HelloWorldSphere!");
+    ASSERT_STREQ(buf, "HelloWorldSphere!");
+}
+
+
+TEST(CoroutineTest, CreateChannel) {
+    Coroutine::NetEngine net_engine;
+    std::ostringstream out;
+
+    for (int i = 0; i < 5; i++) {
+        int chd = net_engine.create_channel();
+        out << chd << " ";
+    }
+
+    net_engine.close_channel(2);
+
+    out << net_engine.create_channel();
+
+    // test for the smallest possible unique desciptor
+    ASSERT_STREQ("0 1 2 3 4 2", out.str().c_str());
+}
+
+/*************************** SimpleMessages test ******************************/
+
+void print_msg(char* bytes, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+        std::cout << bytes[i];
     std::cout << std::endl;
+}
 
-    nw = c.write(buf+10, 5);
-    c.dump();
-    std::cout << "nwrite = " << nw << std::endl;
+void do_send(Coroutine::NetEngine& ne, void*& other) {
+    char send_buf[] = "Hello, do_recv coroutine!";  // 25 bytes
+    size_t len = strlen(send_buf);
 
-    nr = c.read(in, 7);
-    c.dump();
-    std::cout << "nread = " << nr << std::endl;
-    for (auto i = 0; i < nr; i++)
-        std::cout << in[i];
-    std::cout << std::endl;
+    int chd = ne.create_channel(1);
+    ne.send_channel(chd, &len, 1);   // send future message length first
+    ne.send_channel(chd, send_buf, len);
 
-    nr = c.read(in, 10);
-    c.dump();
-    std::cout << "nread = " << nr << std::endl;
-    for (auto i = 0; i < nr; i++)
-        std::cout << in[i];
-    std::cout << std::endl;
+    ne.sched(other);
 
-    nw = c.write(buf+15, 2);
-    c.dump();
-    std::cout << "nwrite = " << nw << std::endl;
+    char recv_buf[100];
+    ne.recv_channel(chd, &len, 1);
+    ne.recv_channel(chd, recv_buf, len);
+    print_msg(recv_buf, len);
+}
 
-    nr = c.read(in, 10);
-    c.dump();
-    std::cout << "nread = " << nr << std::endl;
-    for (auto i = 0; i < nr; i++)
-        std::cout << in[i];
-    std::cout << std::endl;
+void do_recv(Coroutine::NetEngine& ne, void*& other) {
+    char recv_buf[100];
+    size_t len = 0;
+
+    int chd = ne.create_channel(1);
+
+    ne.recv_channel(chd, &len, 1);
+    ne.recv_channel(chd, recv_buf, len);
+
+    print_msg(recv_buf, len);
+
+    char answer[] = "Answer: Hi, do_send coroutine!";
+    len = strlen(answer);
+    ne.send_channel(chd, &len, 1);
+    ne.send_channel(chd, answer, len);
+}
+
+void _msgtest_main(Coroutine::NetEngine& ne) {
+    void *s = nullptr, *r = nullptr;
+    s = ne.run(do_send, ne, r);
+    r = ne.run(do_recv, ne, s);
+
+    // Pass control to recv routine (to observe blocking)
+    ne.sched(r);
+}
+
+TEST(CoroutineTest, SimpleMessages) {
+    Coroutine::NetEngine engine;
+
+    engine.start(_msgtest_main, engine);
 }
