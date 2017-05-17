@@ -52,6 +52,17 @@ void Engine::sched(void* routine_) {
         Store(*cur_routine);
     }
 
+    // try to find non-locked coroutines among callees of locked routine
+    if (routine != nullptr && routine->locked) {
+        context* p = routine;
+        while (p->callee != nullptr && !p->callee->locked) {
+            p = p->callee;
+        }
+        if (p == routine) { // all routines in this chain of callees are locked
+            routine = nullptr;
+        }
+    }
+
     // pass control to the another coroutine
     // if no another coroutine specified, the same semantics as for yield()
 

@@ -156,8 +156,8 @@ void NetEngine::lock(int chan_descr, context* ctx, LockedState reason)
         locks_table[chan_descr] = std::vector<context*>();
     }
 
-    locks_table[chan_descr].push_back(ctx);
     ctx->locked = reason;
+    locks_table[chan_descr].push_back(ctx);
 }
 
 /**
@@ -171,7 +171,7 @@ void NetEngine::unlock_all(int chan_descr, LockedState reason)
         for (std::vector<context*>::iterator i = locked_contexts.begin(); i != locked_contexts.end(); i++) {
             if ((*i)->locked == reason) {
                 (*i)->locked = LockedState::NOT_LOCKED;
-                locked_contexts.erase(i);
+                // locked_contexts.erase(i);
             }
         }
     }

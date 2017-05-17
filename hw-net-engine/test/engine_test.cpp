@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <string.h>
+#include <math.h>
 
 #include <coroutine/channel.h>
 #include <coroutine/engine.h>
@@ -169,3 +170,102 @@ TEST(CoroutineTest, SimpleMessages) {
 
     engine.start(_msgtest_main, engine);
 }
+
+/**************************** Ping Pang Pong Test *****************************/
+void _p_x_ng(Coroutine::NetEngine& ne, int& in_channel, int& out_channel,
+             std::string& name, int& max_count) {
+    int count;
+
+    while (count < max_count) {
+        ne.recv_channel(in_channel, &count, sizeof(int));
+        std::cout << name << std::endl;
+        count++;
+        ne.send_channel(out_channel, &count, sizeof(int));
+    }
+}
+
+void _ppp_main(Coroutine::NetEngine& ne) {
+    void *p1 = nullptr, *p2 = nullptr, *p3 = nullptr;
+    int count = 0, max_count = 9;
+
+    int c1 = ne.create_channel();
+    int c2 = ne.create_channel();
+    int c3 = ne.create_channel();
+
+    ne.send_channel(c1, &count, sizeof(int));
+
+    std::string names[] = {"ping", "pang", "pong"};
+
+    p1 = ne.run(_p_x_ng, ne, c1, c2, names[0], max_count);
+    p2 = ne.run(_p_x_ng, ne, c2, c3, names[1], max_count);
+    p3 = ne.run(_p_x_ng, ne, c3, c1, names[2], max_count);
+
+    ne.sched(p1);
+}
+
+TEST(CoroutineTest, PingPangPong) {
+    Coroutine::NetEngine engine;
+
+    engine.start(_ppp_main, engine);
+}
+
+/******************************* Gradient descent *****************************/
+/*
+// z = x^2 + y^2
+double f(double x, double y) {
+    return x*x + y*y;
+}
+
+void df(double x, double y, double* dfdx, double* dfdy) {
+    *dfdx = 2*x;
+    *dfdy = 2*y;
+}
+
+void _grad_step(Coroutine::NetEngine& ne, int& channel, int& answer_channel) {
+    double point[2];
+    double grad[2];
+    double tol = 1e-5;
+
+    while (true) {
+        ne.recv_channel(channel, point, sizeof(point));
+        std::cout << "Point (x,y):" << point[0] << " " << point[1] << std::endl;
+        double x = point[0], y = point[1];
+        df(x, y, &grad[0], &grad[1]);
+        point[0] = x - 0.2*grad[0];
+        point[1] = y - 0.2*grad[1];
+
+        double diff = fabs(fabs(f(x, y)) - fabs(f(point[0], point[1])));
+        if (diff >= tol) {
+            ne.send_channel(channel, point, sizeof(point));
+        }
+        else {
+            ne.send_channel(answer_channel, point, sizeof(point));
+        }
+    }
+}
+
+
+void _optimize(Coroutine::NetEngine& ne) {
+    void* p1 = nullptr;
+
+    double guess[] = {2.0, 2.0};
+
+    int chan = ne.create_channel();
+    int ans_chan = ne.create_channel();
+
+    ne.send_channel(chan, guess, sizeof(guess));
+
+    p1 = ne.run(_grad_step, ne, chan, ans_chan);
+
+    ne.sched(p1);
+
+    std::cout << "start wait" << std::endl;
+    //ne.recv_channel(ans_chan, guess, sizeof(guess));
+    //std::cout << "Optimal point (x,y) = (" << guess[0] << ", " << guess[1] << ")" << std::endl;
+}
+
+TEST(CoroutineTest, GradientDescent) {
+    Coroutine::NetEngine engine;
+
+    engine.start(_optimize, engine);
+}*/

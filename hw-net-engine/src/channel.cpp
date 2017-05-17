@@ -43,6 +43,7 @@ Channel::~Channel()
     delete buf;
 }
 
+// returns number of bytes read
 ssize_t Channel::read(void *to, size_t nbytes)
 {
     if (nbytes == 0) {
@@ -74,6 +75,7 @@ ssize_t Channel::read(void *to, size_t nbytes)
     }
 }
 
+// returns number of bytes written
 ssize_t Channel::write(const void *from, size_t nbytes)
 {
     if (nbytes == 0) {
